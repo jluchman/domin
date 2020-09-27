@@ -1,10 +1,10 @@
-*! domin version 3.2 4/8/2016 Joseph N. Luchman
+*! domin version 4.0 ././2020 Joseph N. Luchman
 
-program define domin, eclass //history and version information at end of file
+program define domin, eclass 																		//history and version information at end of file
 
-version 12.1
+version 12
 
-if replay() { //replay results - error if "by"
+if replay() { 																						//replay results - error if "by"
 
 	if ("`e(cmd)'" != "domin") error 301
 	
@@ -16,11 +16,37 @@ if replay() { //replay results - error if "by"
 	
 }
 
-syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , [Reg(string) Fitstat(string) Sets(string) /// define syntax
-All(varlist fv ts) noCOMplete noCONditional EPSilon mi miopt(string) CONSmodel REVerse]
+syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , [Reg(string) Fitstat(string) Sets(string) 		///define syntax
+	All(varlist fv ts) noCOMplete noCONditional EPSilon mi miopt(string) CONSmodel REVerse ///
+	noPYthon]
+
+/*determine Python-able version*/
+if (c(stata_version) < 16) | strlen("`python'") {
+	
+	domin_12 `0'
+	
+	exit 0
+	
+}
+
+else {
+	
+	capture python query 
+	
+	if _rc {
+		
+		domin_12 `0'
+	
+		exit 0
+		
+	}
+
+	else version 16
+	
+}
 
 /*defaults and warnings*/
-if !strlen("`reg'") { //if no "reg" option specified - notify and use default "regress"
+if !strlen("`reg'") { 																				//if no "reg" option specified - notify and use default "regress"
 
 	local reg "regress"	
 	
@@ -29,7 +55,7 @@ if !strlen("`reg'") { //if no "reg" option specified - notify and use default "r
 	
 }
 
-if !strlen("`fitstat'") & !strlen("`epsilon'") { //if no "fitstat" and "epsilon" options specified - notify and make default "e(r2)"
+if !strlen("`fitstat'") & !strlen("`epsilon'") { 													//if no "fitstat" and "epsilon" options specified - notify and make default "e(r2)"
 
 	local fitstat "e(r2)"
 	
@@ -38,72 +64,29 @@ if !strlen("`fitstat'") & !strlen("`epsilon'") { //if no "fitstat" and "epsilon"
 	
 }
 
-if strlen("`epsilon'") & strlen("`fitstat'") {	//warning if any "reg" or "fitstat" option specified with "epsilon"
-
-	display "{err}Option {opt epsilon} cannot be used with {opt fitstat(e(r2))}." _newline ///
-	"Entries in {opt fitstat()} ignored." _newline
-
-}
-
-if !strlen("`mi'") & strlen("`miopt'") {	//warning if "miopt" is used without "mi"
+if !strlen("`mi'") & strlen("`miopt'") {															//warning if "miopt" is used without "mi"
 
 	local mi "mi"
 	
-	display "{err}You have added {cmd:mi estimate} options without adding the {opt mi} option.  {opt mi} assumed." _newline
+	display "{err}You have added {cmd:mi estimate} options without adding the {opt mi} option." ///
+	"{opt mi} assumed." _newline
 
 }
 
 /*exit conditions*/
-if strlen("`epsilon'") & strlen("`sets'") {	//"epsilon" and "sets" cannot go together 
+if strlen("`epsilon'") {																			//"epsilon" and "sets" cannot go together 
 
-	display "{err}Options {opt epsilon} and {opt sets()} not allowed together."
+	display "{err}Option {opt epsilon} requires {opt nopython}."
 	
 	exit 198
 
 }
 
-if strlen("`epsilon'") & strlen("`all'") {	//"epsilon" and "all" cannot go together
-
-	display "{err}Options {opt epsilon} and {opt all()} not allowed together."
-	
-	exit 198
-
-}
-
-if strlen("`epsilon'") & strlen("`consmodel'") {	//"epsilon" and "consmodel" cannot go together
-
-	display "{err}Options {opt epsilon} and {opt consmodel} not allowed together."
-	
-	exit 198
-
-}
-
-if strlen("`epsilon'") & strlen("`reverse'") 	///"epsilon" and "reverse" cannot go together
-display "{err}Options {opt epsilon} and {opt reverse} not allowed together." _newline ///
-"{opt reverse} ignored."
-	
-
-if strlen("`epsilon'") & strlen("`weight'") {	//"epsilon" disallows weights
-
-	display "{err}Option {opt epsilon} does not allow {opt weight}s."
-	
-	exit 198
-
-}
-
-if strlen("`epsilon'") & strlen("`mi'") {	//"epsilon" and multiple imputation options cannot go together
-
-	display "{err}Options {opt epsilon} and {opt mi} not allowed together."
-	
-	exit 198
-
-}
-
-if strlen("`mi'") {	//are data actually mi set?
+if strlen("`mi'") {																					//are data actually mi set?
 
 	capture mi describe
 
-	if _rc {	//if data are not mi set
+	if _rc {																						//if data are not mi set
 
 		display "{err}Data are not {cmd:mi set}."
 	
@@ -111,7 +94,7 @@ if strlen("`mi'") {	//are data actually mi set?
 		
 	}
 	
-	if !r(M) {	//exit if no imputations
+	if !r(M) {																						//exit if no imputations
 	
 		display "{err}No imputations for {cmd:mi estimate}." _newline
 		
@@ -120,17 +103,11 @@ if strlen("`mi'") {	//are data actually mi set?
 	}
 
 }
-
-capture which lmoremata.mlib	//is moremata present?
-
+/*capture which lmoremata.mlib	//is moremata present?
 if _rc {	//if moremata cannot be found, tell user to install it.
-
 	display "{err}Module {cmd:moremata} not found.  Install {cmd:moremata} here {stata ssc install moremata}."
-	
 	exit 198
-
-}
-
+}*/
 /*disallow complete and conditional with epsilon option*/
 if strlen("`epsilon'") {
 
@@ -141,93 +118,90 @@ if strlen("`epsilon'") {
 }
 
 /*general set up*/
-if strlen("`mi'") tempfile mifile	//produce a tempfile to store imputed fitstats for retreival
+if strlen("`mi'") tempfile mifile																	//produce a tempfile to store imputed fitstats for retreival
 
-tempname ranks domwgts sdomwgts	cdldom cptdom //temporary matrices for results
+tempname ranks domwgts sdomwgts	cdldom cptdom 														//temporary matrices for results
 
-gettoken dv ivs: varlist	//parse varlist line to separate out dependent from independent variables
+gettoken dv ivs: varlist																			//parse varlist line to separate out dependent from independent variables
 
-gettoken reg regopts: reg, parse(",")	//parse reg() option to pull out estimation command options
+gettoken reg regopts: reg, parse(",")																//parse reg() option to pull out estimation command options
 
-if strlen("`regopts'") gettoken erase regopts: regopts, parse(",")	//parse out comma if one is present
+if strlen("`regopts'") gettoken erase regopts: regopts, parse(",")									//parse out comma if one is present
 
-local diivs "`ivs'"	//create separate macro to use for display purposes
+local diivs "`ivs'"																					//create separate macro to use for display purposes
 
-local mkivs "`ivs'"	//create separate macro to use for sample marking purposes
+local mkivs "`ivs'"																					//create separate macro to use for sample marking purposes
 
-if `:list sizeof sets' {	//parse and process the sets if included
+if `:list sizeof sets' {																			//parse and process the sets if included
 
-	/*pull out set #1 from independent variables list*/
-	gettoken one two: sets, bind	//pull out the first set
+/*	gettoken one two: sets, bind																	//pull out the first set
+	local setcnt = 1																				//give the first set a number that can be updated as a macro
+	local one = regexr("`one'", "[/(]", "")															//remove left paren	
+	local one = regexr("`one'", "[/)]", "")															//remove right paren
+	local set1 `one'																				//name and number set
+	local ivs "`ivs' <`set1'>"																		//include set1 into list of independent variables, include characters for binding in Mata
+	local mkivs `mkivs' `set1'																		//include variables in set1 in the mark sample independent variable list
+	local diivs "`diivs' set1"*/																		//include the name "set1" into list of variables
+
+	local setcnt = 0	//added
+
+	local two "`sets'"	//added
 	
-	local setcnt = 1	//give the first set a number that can be updated as a macro
-	
-	local one = regexr("`one'", "[/(]", "")	//remove left paren
+	while strlen("`two'") {																			//continue parsing beyond set1 so long at sets remain to be parsed (i.e., there's something in the macro "two")
+
+		gettoken one two: two, bind																	//again pull out a set
 			
-	local one = regexr("`one'", "[/)]", "")	//remove right paren
-	
-	local set1 `one'	//name and number set
-	
-	local ivs "`ivs' <`set1'>"	//include set1 into list of independent variables, include characters for binding in Mata
-	
-	local mkivs `mkivs' `set1'	//include variables in set1 in the mark sample independent variable list
-	
-	local diivs "`diivs' set1"	//include the name "set1" into list of variables
-	
-	
-	while strlen("`two'") {	//continue parsing beyond set1 so long at sets remain to be parsed (i.e., there's something in the macro "two")
-
-		gettoken one two: two, bind	//again pull out a set
-			
-		local one = regexr("`one'", "[/(]", "")	//remove left paren
+		local one = regexr("`one'", "[/(]", "")														//remove left paren
 		
-		local one = regexr("`one'", "[/)]", "")	//remove right paren
+		local one = regexr("`one'", "[/)]", "")														//remove right paren
 	
-		local set`++setcnt' `one'	//name and number set - advance set count by 1
+		local set`++setcnt' `one'																	//name and number set - advance set count by 1
 		
-		local ivs "`ivs' <`set`setcnt''>"	//include further sets - separated by binding characters - into independent variables list
+		local ivs "`ivs' <`set`setcnt''" //>"	remove trailing ">" - test														//include further sets - separated by binding characters - into independent variables list
 		
-		local mkivs `mkivs' `set`setcnt''	//include sets into mark sample independent variables list
+		local mkivs `mkivs' `set`setcnt''															//include sets into mark sample independent variables list
 		
-		local diivs "`diivs' set`setcnt'"	//include set number into display list
+		local diivs "`diivs' set`setcnt'"															//include set number into display list
 				
 	}
 			
 }
 
 
-if `:list sizeof ivs' < 2 {	//exit if too few predictors/sets (otherwise prodices cryptic Mata error)
+if `:list sizeof ivs' < 2 {																			//exit if too few predictors/sets
 
-	display "{err}{cmd:domin} requires at least 2 independent variables or independent variable sets."
+	display "{err}{cmd:domin} requires at least 2 independent variables or independent variable" ///
+	" sets."
 	
 	exit 198
 
 }
 
 /*finalize setup*/
-tempvar touse keep	//declare sample marking variables
+tempvar touse keep																					//declare sample marking variables
 
-tempname obs allfs consfs	//declare temporary scalars
+tempname obs allfs consfs																			//declare temporary scalars
 
-mark `touse'	//declare marking variable
+mark `touse'																						//declare marking variable
 
-quietly generate byte `keep' = 1 `if' `in' //generate tempvar that adjusts for "if" and "in" statements
+quietly generate byte `keep' = 1 `if' `in' 															//generate tempvar that adjusts for "if" and "in" statements
 
-markout `touse' `dv' `mkivs' `all' `keep'	//do the sample marking
+markout `touse' `dv' `mkivs' `all' `keep'															//do the sample marking
 
-local nobindivs = subinstr("`ivs'", "<", "", .)	//take out left binding character(s) for use in adjusting e(sample) when obs are dropped by an anslysis
+local nobindivs = subinstr("`ivs'", "<", "", .)														//take out left binding character(s) for use in adjusting e(sample) when obs are dropped by an anslysis
 
-local nobindivs = subinstr("`nobindivs'", ">", "", .)	//take out right binding character(s) for use in adjusting e(sample) when obs are dropped by an anslysis
+local nobindivs = subinstr("`nobindivs'", ">", "", .)												//take out right binding character(s) for use in adjusting e(sample) when obs are dropped by an anslysis
 
-if !strlen("`epsilon'") {	//don't invoke program checks if epsilon option is invoked
+if !strlen("`epsilon'") {																			//don't invoke program checks if epsilon option is invoked
 
 	if !strlen("`mi'") capture `reg' `dv' `nobindivs' `all' [`weight'`exp'] if `touse', `regopts'	//run overall analysis - probe to check for e(sample) and whether everything works as it should
 
 	else {
 
-		capture mi estimate, saving(`mifile') `miopt': `reg' `dv' `nobindivs' `all' [`weight'`exp'] if `keep', `regopts'	//run overall analysis with mi prefix - probe to check for e(sample) and whether everything works as it should
+		capture mi estimate, saving(`mifile') `miopt': `reg' `dv' `nobindivs' `all' ///				//run overall analysis with mi prefix - probe to check for e(sample) and whether everything works as it should
+		[`weight'`exp'] if `keep', `regopts'	
 
-		if _rc {	//if something's amiss with mi...
+		if _rc {																					//if something's amiss with mi...
 		
 			display "{err}Error in {cmd:mi estimate: `reg'}. See return code."
 		
@@ -235,15 +209,15 @@ if !strlen("`epsilon'") {	//don't invoke program checks if epsilon option is inv
 			
 		}
 		
-		else estimates use `mifile', number(`:word 1 of `e(m_est_mi)'')	//if touse doesn't equal e(sample) - use e(sample) from first imputation and proceed
+		else estimates use `mifile', number(`:word 1 of `e(m_est_mi)'')								//if touse doesn't equal e(sample) - use e(sample) from first imputation and proceed
 	
 	}
 	
-	quietly count if `touse'	//tally up observations from count based on "touse"
+	quietly count if `touse'																		//tally up observations from count based on "touse"
 
-	if r(N) > e(N) & !strlen("`mi'") quietly replace `touse' = e(sample)	//if touse doesn't equal e(sample) - use e(sample) and proceed; not possible with multiple imputation though
+	if r(N) > e(N) & !strlen("`mi'") quietly replace `touse' = e(sample)							//if touse doesn't equal e(sample) - use e(sample) and proceed; not possible with multiple imputation though
 
-	if _rc {	//exit if regression is not estimable or program results in error - return the returned code
+	if _rc {																						//exit if regression is not estimable or program results in error - return the error code
 
 		display "{err}{cmd:`reg'} resulted in an error."
 	
@@ -251,17 +225,18 @@ if !strlen("`epsilon'") {	//don't invoke program checks if epsilon option is inv
 
 	}
 	
-	capture assert `fitstat' != .	//is the "fitstat" the user supplied actually returned by the command?
+	capture assert `fitstat' != .																	//is the "fitstat" the user supplied actually returned by the command?
 	
-	if _rc {	//exit if fitstat can't be found
+	if _rc {																						//exit if fitstat can't be found
 
-		display "{err}{cmd:`fitstat'} not returned by {cmd:`reg'} or {cmd:`fitstat'} is not scalar valued. See {help return list}."
+		display "{err}{cmd:`fitstat'} not returned by {cmd:`reg'} or {cmd:`fitstat'} is not" ///
+		" scalar valued. See {help return list}."
 	
 		exit 198
 
 	}
 
-	capture assert sign(`fitstat') != -1	//what is the sign of the fitstat?  domin works best with positive ones - warn and proceed
+	capture assert sign(`fitstat') != -1															//what is the sign of the fitstat?  domin works best with positive ones - warn and proceed
 
 	if _rc {
 
@@ -273,114 +248,117 @@ if !strlen("`epsilon'") {	//don't invoke program checks if epsilon option is inv
 	
 }
 
-if !inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {	//if weights don't affect obs
+if !inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {									//if weights don't affect obs
 	
-	quietly count if `touse'	//tally up "touse" if not "mi"
+	quietly count if `touse'																		//tally up "touse" if not "mi"
 	
-	scalar `obs' = r(N)	//pull out the number of observations included
+	scalar `obs' = r(N)																				//pull out the number of observations included
 	
 }
 
-else if inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {	//if the weights do affect obs
+else if inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {								//if the weights do affect obs
 
-	quietly summarize `=regexr("`exp'", "=", "")' if `touse'	//tally up "touse" by summing weights
+	quietly summarize `=regexr("`exp'", "=", "")' if `touse'										//tally up "touse" by summing weights
 	
-	scalar `obs' = r(sum)	//pull out the number of observations included
+	scalar `obs' = r(sum)																			//pull out the number of observations included
 	
 }
 
 else {
 
-	quietly mi estimate, `miopt': regress `dv' `nobindivs' `all' [`weight'`exp'] if `keep'	//obtain estimate of obs when multiply imputed
+	quietly mi estimate, `miopt': regress `dv' `nobindivs' `all' [`weight'`exp'] if `keep'			//obtain estimate of obs when multiply imputed
 	
-	scalar `obs' = e(N)	//pull out the number of observations included
+	scalar `obs' = e(N)																				//pull out the number of observations included
 
 }
- 
-/*begin estimation*/
-scalar `allfs' = 0	//begin by defining the fitstat of the "all" variables as 0 - needed for dominance() function
 
-if `:list sizeof all' {	//if there are variables in the "all" list
+/*all subsets model adjustment*/
+scalar `allfs' = 0																					//define the fitstat of the "all" variables as 0
+
+if `:list sizeof all' {																				//if there are variables in the "all" list
 	
-	if !strlen("`mi'") {	//when there is no "mi" option specified
+	if !strlen("`mi'") {																			//when there is no "mi" option specified
 	
-		quietly `reg' `dv' `all' [`weight'`exp'] if `touse', `regopts'	//run analysis with "all" independent variables only
+		quietly `reg' `dv' `all' [`weight'`exp'] if `touse', `regopts'								//run analysis with "all" independent variables only
 	
-		scalar `allfs' = `fitstat'	//the resulting "fitstat" is then registered as the value to remove from other fitstats
+		scalar `allfs' = `fitstat'																	//the resulting "fitstat" is then registered as the value to remove from other fitstats
 		
 	}
 	
 	else {	//if "mi" is specified
 	
-		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' `all' [`weight'`exp'] if `keep', `regopts'	//run mi analysis with "all" independent variables only
+		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' `all' ///				//run mi analysis with "all" independent variables only
+		[`weight'`exp'] if `keep', `regopts'	
 	
-		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')	//call mi_dom program to average fitstats
+		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')								//call mi_dom program to average fitstats
 		
-		scalar `allfs' = r(passstat)	//the resulting average fitstat is then registered as the value to remove from other fitstats
+		scalar `allfs' = r(passstat)																//the resulting average fitstat is then registered as the value to remove from other fitstats
 	
 	}
 
 }
 
-scalar `consfs' = 0	//begin by defining the fitstat of the constant-only model as 0 - needed for dominance() function
+/*constant model adjustment*/
+scalar `consfs' = 0																					//define the fitstat of the constant-only model as 0
 
-if strlen("`consmodel'") {	//if the user desires to know what the baseline fitstat is
+if strlen("`consmodel'") {																			//if the user desires to know what the baseline fitstat is
 	
-	if !strlen("`mi'") {	//if "mi" is not declared
+	if !strlen("`mi'") {																			//if "mi" is not declared
 	
-		quietly `reg' `dv' [`weight'`exp'] if `touse', `regopts'	//conduct analysis without independent variables
+		quietly `reg' `dv' [`weight'`exp'] if `touse', `regopts'									//conduct analysis without independent variables
 	
-		scalar `consfs' = `fitstat'	//return baseline fitstat
+		scalar `consfs' = `fitstat'																	//return baseline fitstat
 		
 	}
 	
-	else {	//if "mi" is declared
+	else {																							//if "mi" is declared
 	
-		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' [`weight'`exp'] if `keep', `regopts'	//conduct mi analysis without independent variables
+		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' ///						//conduct mi analysis without independent variables
+		[`weight'`exp'] if `keep', `regopts'	
 	
-		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')	//compute average fitstat
+		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')								//compute average fitstat
 		
-		scalar `consfs' = r(passstat)	//return average baseline fitstat
+		scalar `consfs' = r(passstat)																//return average baseline fitstat
 	
 	}
 	
-	if `:list sizeof all' scalar `allfs' = `allfs' - `consfs'
+	if `:list sizeof all' scalar `allfs' = `allfs' - `consfs'										//adjust all subsets fitstat for the constant model if both are present
 	
 }
 
-if strlen("`epsilon'") { //primary analysis when "epsilon" is invoked
+/*begin dominance computations*/
 
-	if ("`reg'" == "mvdom") `reg' `dv' `ivs' if `touse', `regopts' `epsilon'	//invoke the epsilon version of mvdom
 
-	else mata: eps_ri("`dv' `ivs'", "`reg'", "`touse'", "`regopts'") //mata function to obtain epsilon-based estimates
-	
-	matrix `domwgts' = r(domwgts) //translate r-class matrix into temp matrix that domin expects
-	
-	matrix `sdomwgts' = `domwgts'*(1/r(fs))	//produce standardized relative weights (i.e., out of 100%)
-	
-	mata: st_matrix("`ranks'", mm_ranks(st_matrix("r(domwgts)")':*-1, 1, 1)')	//rank the relative weights
+// <><><><> ?? python here?? <><><><> //
 
-}
 
-else {
 
-	mata: dominance(`"`ivs'"', "`conditional'", "`complete'", `=`allfs'', `=`consfs'', "`mi'")	//invoke "dominance()" function in Mata
-	
-	/*translate r-class results into temp results*/
-	matrix `domwgts' = r(domwgts)
-	
-	matrix `sdomwgts' = r(sdomwgts)
-	
-	matrix `ranks' = r(ranks)
-	
-	if !strlen("`conditional'") matrix `cdldom' = r(cdldom)
-	
-	if !strlen("`complete'") matrix `cptdom' = r(cptdom)
-	
-}
+tempfile pass_pickle
+
+quietly findfile st_domin_py.py
+
+python script "`r(fn)'", /*global*/ args("`reg'" "`dv'" `"`ivs'"' "`all'" ///
+	"`touse'" "`regopts'" "`fitstat'" "`mi'" "`miopts'" "`=`allfs'+`consfs''" "`conditional'" ///
+	"`complete'")
+
+/*translate r-class results into temp results*/	
+
+matrix `domwgts' = r(domwgts)
+
+matrix `sdomwgts' = r(sdomwgts)
+
+matrix `ranks' = r(ranks)
+
+if !strlen("`conditional'") matrix `cdldom' = r(cdldom)
+
+mata: st_matrix("r(cptdom)", st_matrix("r(cptdom)"):-st_matrix("r(cptdom)")')					// combine complete dominance as obtained from Python (not symmetric) and make symmetric
+
+if !strlen("`complete'") matrix `cptdom' = r(cptdom)
+
 
 /*display results - this section will not be extensively explained*/
 /*name matrices*/
+
 matrix colnames `domwgts' = `diivs'	
 
 if strlen("`reverse'") {	//reverse the direction and interpretation of rank and standardized weights
@@ -500,7 +478,7 @@ ereturn matrix std `sdomwgts'
 
 /*begin display*/
 Display
-
+*/
 end
 
 /*Display program*/
@@ -640,16 +618,16 @@ if `=e(setcnt)' {
 if strlen("`e(all)'") display "{txt}Variables included in all subsets: `e(all)'"
 
 end
-
+/*
 /*Mata function to compute all tuples of predictors or predictor sets
 run all subsets regression, and compute all dominance criteria*/
-version 12.1
+version 16
 
 mata: 
 
 mata set matastrict on
 
-void dominance(string scalar ivs, string scalar cdlcompu, string scalar cptcompu, ///
+void domin_stats(string scalar ivs, string scalar cdlcompu, string scalar cptcompu, ///
 real scalar allfs, real scalar consfs, string scalar mi) 
 {
 	/*object declarations*/
@@ -692,7 +670,7 @@ real scalar allfs, real scalar consfs, string scalar mi)
 		}
 		
 	}
-	
+/*	
 	/*set-up and compute all n-tuples of predictors and predictor sets*/
 	nvars = rows(iv_mat) //compute total # of IV sets and IVs
 	
@@ -783,7 +761,7 @@ real scalar allfs, real scalar consfs, string scalar mi)
 	}
 	
 	fits = fits[2..ntuples + 1] //only keep non-empty fitstats (i.e., omit the first empty one)
-
+*/
 	/*define the incremental prediction matrices and combination rules*/
 	include = sign(strlen(tuples)) // matrix indicating whether variable included in any regression associated with the "fits" vector
 
@@ -1175,12 +1153,9 @@ Basic version
  -fixed use of total with mi to obtain N, doesn't work with tsvars and fvars, changed to regress
  -update predictor combination computation - use tuples' approach
  
+ -----
 
- 
- 
- for v. 4
-  -will incorporate miinc's interaction engine - adjusts averages to only include valid interaction combination w/ factor variables (or allow tuples' combination eliminator - later version, needs a pub to justify maybe... for now make fixes)
-  -will save info from all regressions for user to access in Mata object
-  -multi-equations (make a separate program)
-  -built in mcF and Estrella r2?
-*/
+- domin version 4.0 - date - Nov ..., 2020
+  
+ //notable changes\\
+ -Python backend to the all subsets estimation that calls Stata statistical models

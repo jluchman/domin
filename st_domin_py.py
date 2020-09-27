@@ -1,376 +1,255 @@
-import sys																							# used to pull in arguments passed to Python from Stata
-import itertools as it																				# key module used for collecting all combinations
-import sfi																							# Stata function interface
-import pickle
-
-print(sys.argv)
-
-iv_mat = sys.argv[3].strip().split("<")
-
-if len(iv_mat[0])>0: iv_mat = iv_mat[0].strip().split(" ") + iv_mat[1:len(iv_mat)]
-else: iv_mat = iv_mat[1:len(iv_mat)]
-
-iv_mat = [i.replace(">","").strip() for i in iv_mat]
-
-print(iv_mat)
-
-tupl_agg = list(map(it.combinations, list(it.repeat(iv_mat, len(iv_mat))), 
-range(1, len(iv_mat)+1)))
-
-print(tupl_agg)
-
-ls1 = [len(i)> 2 for i in iv_mat] 
-
-print(ls1)
-
-ls2 = [x==len(ls1)-1 for x in list(range(len(ls1)))]
-
-print(ls2)
-
-sfi.SFIToolkit.stata("display \"{txt}Total of {res}" + str(2**len(iv_mat)-1) + 
-	" {txt}regressions\"")
-	
-sfi.SFIToolkit.stata("display \"{txt}Progress in running all regression subsets\" _newline " + 
-	"\"{res}0%{txt}{hline 6}{res}50%{txt}{hline 6}{res}100%\"")
-	
-def st_ensemble(specs): #, print_it, last):				<< need do add in the printing business
-	#if len(specs)>=5:
-	#	if print_it and last: print(".")
-	#	elif print_it: print(".", end="")
-	#print(it.chain.from_iterable(specs))
-	print("quietly " + sys.argv[1] + " " + sys.argv[2] + " " + 
-	" ".join(specs) + " " + sys.argv[4] + " if " + sys.argv[5] + "," + 
-	sys.argv[6])
-	sfi.SFIToolkit.stata("quietly " + sys.argv[1] + " " + sys.argv[2] + " " + 
-	" ".join(specs) + " " + sys.argv[4] + " if " + sys.argv[5] + "," + 
-	sys.argv[6])
-	print(sfi.Scalar.getValue(sys.argv[7]))
-	return((" ".join(specs), sfi.Scalar.getValue(sys.argv[7])))
-
-st_dom_agg = [""]
-	
-for tp_agg in range(len(tupl_agg)):
-	st_dom_ret = list(map(st_ensemble, list(tupl_agg[tp_agg])))
-	print(st_dom_ret)
-	st_dom_agg.append(st_dom_ret)
-
-print(st_dom_agg)
-
-pickle.dump(st_dom_agg, open(sys.argv[8], "wb"))
-
-"""	
-for combn in tupl_agg:
-	print(combn)
-	print(list(combn))
-	ls1 = [len(i)> 2 for i in list(combn)]
-	print(ls1)
-	collect = list(map(st_ensemble, list(combn))) #, ls1, ls2))
-	print(collect)
-
-	
+from sys import argv as use_stata_arguments
+import itertools as it
+import sfi
+#import pickle                                                                                      # for passing data back to Stata without making the result -global- << necessary? >>
+#import functools as ft                                                                             # key module for summing << necessary? >>
+import statistics as stat
+from math import factorial as fctl
 
 
-	
-	/*parse the predictor inputs*/	
-	t = tokeninit(wchars = (" "), pchars = (" "), qchars = ("<>")) //set up parsing rules
-	
-	tokenset(t, ivs) //register the "ivs" matrix as the one to be parsed
-	
-	iv_mat = tokengetall(t)' //obtain all IV sets and IVs
-	
-	/*remove characters binding sets together (i.e., "<>")*/
-	for (x = 1; x <= rows(iv_mat); x++) {
-	
-		if (substr(iv_mat[x], 1, 1) == "<") { //if any entry begins with "<"...
-		
-			iv_mat[x] = substr(iv_mat[x], 1, strlen(iv_mat[x]) - 1) //first character removed ("<")
-			
-			iv_mat[x] = substr(iv_mat[x], 2, strlen(iv_mat[x])) //last character removed (">")
-			
-		}
-		
-	}
-	
-	/*set-up and compute all n-tuples of predictors and predictor sets*/
-	nvars = rows(iv_mat) //compute total # of IV sets and IVs
-	
-	ntuples = 2^nvars - 1 //compute total # of regressions
-	
-	printf("\n{txt}Total of {res}%f {txt}regressions\n", ntuples)
-	
-	if (nvars > 12) printf("\n{txt}Computing all predictor combinations\n")
+#print(use_stata_arguments) #//
 
-	indicators = J(nvars, 2^nvars, .)	//set up matrix to be filled in which will generate all subsets 
-	
-	for (x = 1; x <= rows(indicators); x++) {	//for each row in indicators matrix...
-	
-		combin = J(1, 2^(x-1), 0), J(1, 2^(x-1), 1)	//make a binary matrix - start small, a zero and a 1, then 2 0's and 2 1's, etc...
-		
-		indicators[x, .] = J(1, 2^(nvars-x), combin)	//spread the binary matrix just created across all rows - net effect is staggering all binaries to obtain all subsets in the final matrix
-		
-	}
-	
-	indicators = indicators[|., 2\ ., .|]	//omit the first, null column
-	
-	indicators = (colsum(indicators) \ indicators)'	//create a "counts" column on which to sort
-	
-	indicators = sort(indicators, (1..cols(indicators)))	//sort, beginning with counts, followed by all other rows - net effect results in same sort order as cvpermute()
-	
-	indicators = indicators[|1, 2\ ., .|]'	//omit count's column created before
-	
-	indicators = sort(((cols(indicators)::1), indicators'), 1)[., 2..rows(indicators)+1]'	//reverse sort order, dominance() expects reversed order
-	
-	tuples = indicators:*iv_mat	//apply string variable names to all subsets indicator matrix
-	
-	/*all subsets regressions and progress bar syntax if predictors or sets of predictors is above 5*/
-	display = 1 //for the display of dots during estimation - keeps track of where the regressions are - every 5% there is another "." added
-	
-	if (nvars > 4) {
-	
-		printf("\n{txt}Progress in running all regression subsets\n{res}0%%{txt}{hline 6}{res}50%%{txt}{hline 6}{res}100%%\n")
-		
-		printf(".")
-		
-		displayflush()
-		
-	}
+Stata_Regression = use_stata_arguments[1]
+Dep_Var = use_stata_arguments[2]
+Indep_Vars_Unprocessed = use_stata_arguments[3]
+AllSubsets_Indep_Vars = use_stata_arguments[4]
+If_Conditions = use_stata_arguments[5]
+Regress_Options = use_stata_arguments[6]
+Fit_Statistic = use_stata_arguments[7]
+Mult_Impute_Flag = use_stata_arguments[8]
+Mult_Impute_Opts = use_stata_arguments[9]
+FitStat_Adjustment = float(use_stata_arguments[10])
+Conditional_Flag = not bool(len(use_stata_arguments[11]))
+Complete_Flag = not bool(len(use_stata_arguments[12]))
 
-	fits = (.) //dummy vector that will contain fitstats across all 
-	
-	for (x = 1; x <= ntuples; x++) { //here all regressions 
-	
-		if (nvars > 4) {
-	
-			if (floor(x/ntuples*20) > display) {
-			
-				printf(".")
-				
-				displayflush()
-				
-				display++	
-				
-			}
-			
-		}
 
-		preds = tuples[., x]' //take the names in column "x" and transpose into row
-	
-		ivuse = invtokens(preds) //collpase names into single string separated by spaces
-	
-		if (strlen(mi) == 0) { //regular regression
-		
-			stata("\`reg' \`dv' \`all' " + ivuse + " [\`weight'\`exp'] if \`touse', \`regopts'", 1) //conduct regression
-		
-			fs = st_numscalar(st_local("fitstat")) - allfs - consfs //record fitstat omitting constant and "all" subsets values
-			
-		}
-		
-		else { //regression with "mi estimate:"
-		
-			stata("mi estimate, saving(\`mifile', replace) \`miopt': \`reg' \`dv' \`all' " + ivuse + ///
-			" [\`weight'\`exp'] if \`keep', \`regopts'", 1) //conduct regression with "mi estimate:"
-		
-			stata("mi_dom, name(\`mifile') fitstat(\`fitstat') list(\`=e(m_est_mi)')", 1) //use built-in program to obtain average fitstat across imputations
-			
-			fs = st_numscalar("r(passstat)") - allfs - consfs //record fitstat omitting constant and "all" subsets values with "mi estimate:"
-		
-		}
-	
-		fits = (fits, fs) //add fitstat to vector of fitstats
 
-	}
-	
-	fits = fits[2..ntuples + 1] //only keep non-empty fitstats (i.e., omit the first empty one)
+    # ~~ Create independent variable list ~~ #
+    
+Indep_Var_List = Indep_Vars_Unprocessed.strip().split("<") # parses IV sets, if any (individual IVs unprocessed)
 
-	/*define the incremental prediction matrices and combination rules*/
-	include = sign(strlen(tuples)) // matrix indicating whether variable included in any regression associated with the "fits" vector
+#print(Indep_Var_List) #//
 
-	counts = colnonmissing(exp(ln(include))) //# of variables in each regression
+if len(Indep_Var_List[0]) > 0:
+    Indep_Var_List = ( Indep_Var_List[0].strip().split(" ") + 
+        Indep_Var_List[1:len(Indep_Var_List)] ) # if there are only individual IVs, or if there are invidual IVs and IV sets, parse individual IVs(and include IV sets if any)
+else:
+    Indep_Var_List = Indep_Var_List[1:len(Indep_Var_List)] # otherwise, remove the "empty" space that's produced by the missing individual IVs
 
-	noinclude = (include:-1) //matrix indicating whether variable not included in any regression associated with the "fits" vector
-	
-	combsinc = J(1, ntuples, 1):*comb(nvars, counts) //matrix indicating the number of combinations at each "order"/# of predictors
-	
-	combsinc2 = J(1, ntuples, 1):*comb(nvars - 1, counts) //matrix indicating the number of combinations at each "order"/# of predictors - 1
-	
-	combsinc2 = (0, combsinc2[., 2..ntuples]) //add a 0 to # combinations.. omit first "." value
-	
-	combsinc = combsinc - combsinc2 //remove # of combinations for the "order" less the value at "order" - 1
-	
-	include = include:*combsinc //put all the adjusted combination counts into matrix when the variable is included
-	
-	noinclude = noinclude:*combsinc2 //put all the "order" - 1 combination counts into matrix when the variable is not included
-	
-	/*compute conditional dominance*/
-	if (strlen(cdlcompu) == 0) {
-	
-		if (nvars > 5) printf("\n\n{txt}Computing conditional dominance\n")
-	
-		cdl = J(nvars, nvars, 0) //dummy matrix to hold conditional dominance stats
-		
-		/*loop over orders (i.e., # of predictors) to obtain average incremental prediction within order*/
-		for (x = 1; x <= nvars; x++) { //proceed order by order
-		
-			cdl1 = include:^-1 //invert the counts for indluded (as it makes the within-order averages)
-				
-			cdl2 = noinclude:^-1 //invert the counts for non-indluded (as it makes the within-order averages)
-			
-			cdl1 = select(cdl1:*fits, counts:==x) //at the focal order, obtain weighted fitstats
-			
-			if (x > 1) { // at all orders (>1) where the marginal contribution != to the fitstat itself
-			
-				cdl2 = select(cdl2:*fits, counts:==x-1) //weighted marginal contribution to fitstat at order - 1
-				
-				cdl3 = rowsum(cdl1) + rowsum(cdl2) //sum the marginal contributions (cdl2 values are negative)
-				
-			}
-				
-			else cdl3 = rowsum(cdl1) //sum the marginal contributions @ order 1
-						
-			cdl[., x] = cdl3 //replace the entries in cdl with the current values of cdl3, these are the within-order averages
-		
-		}
-		
-		st_matrix("r(cdldom)", cdl) //return r-class matrix "cdldom"
-	
-	}
-	
-	/*define the full design matrix - compute general dominance (average conditional dominance across orders)*/
-	design = (include + noinclude):*nvars //create matrix that will have positive and negative signs in the correct places to obtain marginals - weight by number of variables total (between-order average of within-order averages)
-	
-	design = design:^-1 //invert design matrix to create weights
-	
-	domwgts = colsum((design:*fits)') //general dominance weights created by computing product of weights and fitstats and summing for each IV
-	
-	fs = rowsum(domwgts) + allfs + consfs //total fitstat is then sum of gen. dom. wgts replacing the constant-only model and the "all" subsets stat
+#Indep_Var_List = [i.replace(">","").strip() for i in Indep_Var_List]                                               # the trailing ">"'s still remain from each set; here they is removed   << needed with Python? >>
 
-	st_matrix("r(domwgts)", domwgts) //return the general dom. wgts as r-class matrix
+#print(Indep_Var_List) #//
 
-	sdomwgts = domwgts:*fs^-1 //generate the standardized gen. dom. wgts
-	
-	st_matrix("r(sdomwgts)", sdomwgts) //return the stdzd general dom. wgts as r-class matrix
-	
-	st_matrix("r(ranks)", mm_ranks(domwgts'*-1, 1, 1)') //return the ranks of the general dom. wgts as r-class matrix
 
-	st_numscalar("r(fs)", fs) //return overall fit statistic in r-class scalar
-	
-	/*compute complete dominance*/
-	if (strlen(cptcompu) == 0) {
-	
-		if (nvars > 5) printf("\n{txt}Computing complete dominance\n")
+    # ~~ Create independent variable combination list ~~ #
+    
+Combination_List = list(map(it.combinations, # use map() function to apply combinations function to ...
+                            list(it.repeat(Indep_Var_List, len(Indep_Var_List))), #... the IV list - which is repeated so that...
+                            range(1, len(Indep_Var_List)+1))) # ... each number of combinations of a specific number of elements can be applied to get all possible combinations (note: saved as a combination object to be evaluated later and not as the list of combinations)
 
-		cpt = J(nvars, nvars, 0) //dummy matrix for complete dominance
-		
-		basecpt = (J(2, 1, 1) \ J(nvars - 2, 1, 0)) //generate the "base" of the compare each 2 IVs
-	
-		basiscpt = cvpermutesetup(basecpt) //setup for the permutations
-		
-		indicator = (1::nvars) //generate "indicator" for which variables are being compared
-		
-		for (x = 1; x <= comb(nvars, 2); x++) {  
-		
-			combincpt = cvpermute(basiscpt) //invoke the current combination of 2 variables
-		
-			rowcol = select(combincpt:*indicator, combincpt:==1) //note the row in which both variables being comapred are located
-		
-			focus = select(sign(strlen(tuples)), combincpt:==1) //make a selector (1 vs. 0) matrix for pulling out all fitstats, only on focal IVs
-		
-			rest = select(sign(strlen(tuples)), combincpt:==0) //make a selector (1 vs. 0) matrix for pulling out all fitstats, only on non-focal IVs
-			
-			cptsum = 0 //used as a index for determining complete dominance for the current comparison of 2 IVs
-			
-			compare = focus:*fits //create matrix of fitstats that correspond only to the focal comparisons
-			
-			for (y = 1; y <= nvars - 1; y++) { //for each order (up to # IVs - 1)
-			
-				eval = select(compare, counts:==y) //on the filtered fitstat matrix, pull out comparisons at a specific order
-				
-				selector1 = select(focus, counts:==y) //on the indicator matrix, pull out comparisons at a specific order
-				
-				selector1 = colsum(selector1) //on the filtered indicator matrix of order "y", enumerate # of IVs in each model
-				
-				selector2 = select(rest, counts:==y) //on the indicator matrix of non-focal vars, pull out comparisons at a specific order
-				
-				comparecount = 1 //counter to keep track of # of comparisons
-				
-				basecpt2 = (J(y - 1, 1, 1) \ J(nvars - y - 1, 1, 0)) //another looped permutation to make all the specific comparisons w/in order
-				
-				/*make comparisons between fitstat's - matching on predictors*/
-				while ((comparecount <= comb(nvars - 2, y - 1)) & (nvars > 2)) { //so long as there are > 2 IVs... loop for all comparisons
-					
-					if (y == 1) eval2 = select(eval, selector2[comparecount, .]:==0) //fitstats when only focal IV is in the model (y = 1 per row, i.e., the focal IVs)
-					
-					else if (y == 2) { //fitstats when 1 other non-focal variable is in the model
-					
-						eval2 = select(eval, selector1:==1)	//select the fitstats when only the focal IVs are in the model (i.e., not both IVs)
-						
-						selector3 = select(selector2, selector1:==1) //pull out the columns where there also the other non-focal IV
-					
-						eval2 = select(eval2, selector3[comparecount, .]:==1) //then select the fitstats where there are only the focal IVs (alone) with the non-focal IV
-					
-					}
-					
-					else { //fitstats when >=2 variables are in the model
-						
-						eval2 = select(eval, selector1:==1) //select the fitstats when only the focal IVs are in the model (i.e., not both IVs)
-						
-						selector3 = select(selector2, selector1:==1) //pull out the columns where there also the other non-focal IV
-						
-						basiscpt2 = cvpermutesetup(basecpt2) //set-up permutation of >1 variable to select all possible combinations
-						
-						combincpt2 = cvpermute(basiscpt2)*10 //activate permutation of >1 variable to select all possible combinations (rescaled by 10 for use in exponentiating)
-										
-						revind = (nvars - 2::1) //used for exponentiation below
-						
-						selector4 = J(nvars - 2, 1, 10) //base matrix to use for selecting fitstats - adjusted below
-						
-						combincpt2 = combincpt2:^revind*(1/10) //matrix which now indicates location of a variable positionally by # of 0s (re-scaled back down by 10)
-						
-						selector4 = selector4:^revind*(1/10) //obtain a selection matrix which is scaled the sdame as the combination matrix above
-						
-						selector4 = selector3:*selector4 //rescale the "selector3" matrix with only the current non-focal IVs are selected
-						
-						selector4 = colsum(selector4) //make selector4 a rowmat so select() can use it
-						
-						combincpt2 = colsum(combincpt2)	//make combincpt2 a rowmat so select() can use it
-						
-						eval2 = select(eval2, selector4:==combincpt2) //obtain only one specific combination of the non-focal IVs for the comparison				
-					
-					}
-				
-					/*here the comparison is actually made and "cptsum" is updated*/
-					var1 = rowsum(eval2[1, .]) //all the fitstats in row 1 call "var1" - sum them (there should only be 1)
-				
-					var2 = rowsum(eval2[2, .]) //all the fitstats in row 2 call "var2" - sum them (there should only be 1)
-				
-					cptdom = sign(var1 - var2) //is one bigger than the other? Keep sign only 
-								
-					cptsum = cptsum + cptdom //add sign to current sum
-					
-					comparecount++ //increment comparecount and evaluate the while statement above...
-					
-				}
-				
-			}
-			
-			/*determine completely dominate, dominated by or none*/
-			if (nvars == 2) cptsum = sign(rowsum(compare[1, .]) - rowsum(compare[2, .])) //simple situation w/ 2 predictors
-		
-			if (cptsum == 2^(nvars - 2)) cpt[rowcol[1, 1], rowcol[2, 1]] = 1 //if all the cptdom comarisons were "+" then, there is complete dominance for "var1"
-		
-			else if (cptsum == -2^(nvars - 2)) cpt[rowcol[1, 1], rowcol[2, 1]]= -1 //if all the cptdom comarisons were "-" then, there is complete dominance for "var2"
-		
-			else cpt[rowcol[1, 1], rowcol[2, 1]] = 0 //otherwise no complete dominance
-	
-		}
-		
-		cpt = cpt + cpt'*-1 ///*make cptdom matrix symmetric in what it is telling the user*/
-	
-		st_matrix("r(cptdom)", cpt) //return r-class matrix "cptdom"
-	
-	}
-	
-}
+#print(Combination_List) #//
 
-end
+Total_Indep_Vars = len(Combination_List) # number of IVs in model
+Total_Models_to_Estimate = 2**Total_Indep_Vars - 1 # total number of models to estimate
+
+if Total_Indep_Vars > 4:
+    sfi.SFIToolkit.stata("display \"{txt}Total of {res}" + str(2**len(Indep_Var_List)-1) + 
+        " {txt}regressions\"")
+    
+    sfi.SFIToolkit.stata("display \"{txt}Progress in running all regression subsets\" _newline " + 
+        "\"{res}0%{txt}{hline 6}{res}50%{txt}{hline 6}{res}100%\"")
+
+
+    # ~~ Define function to call regression model in Stata ~~ #
+    
+# ~~ adding in model #'s -- for some reason adding in model #'s affects "Model_Increments"  ~~ #
+    
+def st_model_call(Indep_Var_combination, report): #, print_it, last):             << need to add in the printing business
+    #if len(specs)>=5:
+    #   if print_it and last: print(".")
+    #   elif print_it: print(".", end="")
+    
+    #print("quietly " + use_stata_arguments[1] + " " + use_stata_arguments[2] + " " + 
+    #" ".join(specs) + " " + use_stata_arguments[4] + " if " + use_stata_arguments[5] + "," + 
+    #use_stata_arguments[6])
+    
+    sfi.SFIToolkit.stata( "quietly " +
+                         Stata_Regression + " " + 
+                         Dep_Var + " " +   
+                         " ".join(Indep_Var_combination) + " " +
+                         AllSubsets_Indep_Vars +
+                         " if " + If_Conditions +
+                          "," + Regress_Options )
+    
+    if report: print(".", end="") #//
+    
+    #print(sfi.Scalar.getValue(use_stata_arguments[7]))
+    
+    return( (Indep_Var_combination,
+             sfi.Scalar.getValue(Fit_Statistic)) ) # << include coefficients, vcov, others?? >>
+
+
+    # ~~ Obtain all subsets regression results ~~ #
+    
+Ensemble_of_Models = [] # initialize ensemble list container
+
 """
+'Ensemble_of_Models' is structured such that:
+1. Top level is results by number of IVs in the model
+2. Middle level is model within a number of IVs
+3. Bottom level is a specific result from 'st_model_call'
+"""
+
+place_begin = 0
+place_end= 0
+if Total_Indep_Vars > 4: flag_list = [int(twentieth/20*Total_Models_to_Estimate) for twentieth in range(1,21)]
+else: flag_list = []
+    
+for number_of_Indep_Vars in range(Total_Indep_Vars): # applying the modeling function across all IV combinations at a distinct number of IVs
+    
+    #print(fctl(Total_Indep_Vars-(number_of_Indep_Vars+1))) #//
+    
+    place_end = place_end + fctl(Total_Indep_Vars)/(fctl(number_of_Indep_Vars+1)*fctl(Total_Indep_Vars-(number_of_Indep_Vars+1)))
+    
+    flaggs = [x in flag_list for x in range(int(place_begin), int(place_end))]
+    
+    #print(flaggs) #//
+    
+    Models_at_Indep_Var_number = list( map(st_model_call,
+                                   list(Combination_List[number_of_Indep_Vars]), flaggs ) )
+    
+    Ensemble_of_Models.append(Models_at_Indep_Var_number)
+    
+    place_begin = place_end
+
+
+#print("All the results:", Ensemble_of_Models) #//
+
+    # ~~ Process all subsets - find the increments  ~~ #
+Model_List = [[list(model) for model in Ensemble_of_Models[0]]]  # evaluate the map-ped models and record them - start with the single IV models...
+for model in range(len(Model_List[0])): # ...for the single IV models...
+    Model_List[0][model][1] = Model_List[0][model][1]-FitStat_Adjustment #... have to remove constant model results as well as all subets results
+
+#print("model list:", Model_List) #//
+
+for number_of_Indep_Vars in range(1, len(Ensemble_of_Models)): # when >1 IV in the model, processing needed...
+    Model_Incremented = []  # initialize/reset container for finding subset
+    Indep_Var_Set_at_1lessIndep_Var = [set(Candidate_Indep_Var_Set[0]) for Candidate_Indep_Var_Set in Ensemble_of_Models[number_of_Indep_Vars-1]] # collect all sets IVs (coerced to be a set object), specifically all sets at one less IV in the model than the current number of IVs
+    #print("subsets less one", Indep_Var_Set_at_1lessIndep_Var) #//
+    for model in range(0, len(Ensemble_of_Models[number_of_Indep_Vars])): # loop through all models at a specific number of IVs in the model...
+        #print(set(Ensemble_of_Models[number_of_Indep_Vars][model][0])) #//
+        Indep_Var_Set = set(Ensemble_of_Models[number_of_Indep_Vars][model][0]) # IV set for a focal model; coerced to be set object
+        for at1less_model in range(0, len(Indep_Var_Set_at_1lessIndep_Var)): # loop through all models at one less than the specific number of IVs in the model...
+            #print(Indep_Var_Set_at_1lessIndep_Var[sub].isIndep_Var_Set_at_1lessIndep_Var(superset)) #//
+            if Indep_Var_Set_at_1lessIndep_Var[at1less_model].issubset(Indep_Var_Set): # if IV set at one less is a subset of the predictors in the focal model...
+                Model_Incremented.append( 
+                [ Ensemble_of_Models[number_of_Indep_Vars][model][0], # append IV names at focal ...
+                  Ensemble_of_Models[number_of_Indep_Vars-1][at1less_model][0], # ...IV names at one less...
+                  Ensemble_of_Models[number_of_Indep_Vars][model][1] - Ensemble_of_Models[number_of_Indep_Vars-1][at1less_model][1] ] # ...and the increment to the fit metric
+                )
+                #print(Model_Incremented)
+    Model_List.append(Model_Incremented) 
+        
+#print("finalized all subsets/increments", Model_List) #//
+
+"""
+'Model_List' is structured such that:
+1. Top level is results by number of IVs in the model
+2. Middle level is model within a number of IVs
+3. Bottom level is a specific increment's information (full_model, reduced_model, fit metric difference)
+"""
+
+    # ~~ Obtain complete and conditional dominance statistics  ~~ #
+Conditional_Dominance = [] # conditional dominance container
+if Complete_Flag: Complete_Dominance = [] # complete dominance container
+
+#print("conditionals + Complete_Dominance") #//
+
+for Indep_Var in range(0, len(Model_List[0])): # for each IV in the model...
+    Conditional_atIndep_Var = [] # initialize/reset container for conditional dominance
+    Conditional_atIndep_Var.append(Model_List[0][Indep_Var][1]) # for IV alone - copy fit statistic
+    #print("When alone FitStat:", Conditional_atIndep_Var)
+    Indep_Varname = set(Model_List[0][Indep_Var][0]) # record name of focal IV; coerce to set
+    #print("Results for variable:", Indep_Varname) #//
+    if Complete_Flag: Complete_atIndep_Var = [
+        [Other_Indep_Var[1] < Model_List[0][Indep_Var][1]] # compare fit statistic values (is focal IV larger than other IV?) ...
+        for Other_Indep_Var in Model_List[0][0:len(Model_List[0])] ] #... for other IVs alone (will compare to self also)
+    #print("\n initialized complete dominance:", Complete_atIndep_Var) #//
+    
+    for number_of_Indep_Vars in range(1, len(Model_List)): # for all numbers of IVs greater than 1...
+        #print("Subsets to search through:",Model_List[number_of_Indep_Vars]) 
+        Relevant_Increments = [] # initialize/reset container for collecting specific/relevant conditional dominance increments
+        for model in range(0, len(Model_List[number_of_Indep_Vars])): # for each individual model within a specific number of IVs...
+            #print("A subset and whether full model has focal in it:",
+                  #[set(Model_List[number_of_Indep_Vars][model][0]), Indep_Varname.issubset(set(Model_List[number_of_Indep_Vars][model][0]))]) #//
+            #print("A subset and whether reduced model has focal not in it:",
+                  #[set(Model_List[number_of_Indep_Vars][model][1]), not Indep_Varname.issubset(set(Model_List[number_of_Indep_Vars][model][1]))]) #//
+            proceed_to_record = ( Indep_Varname.issubset( set(Model_List[number_of_Indep_Vars][model][0]) ) and not # flag this entry for recording if the focal IV name is in the IV set...
+                         Indep_Varname.issubset( set(Model_List[number_of_Indep_Vars][model][1]) ) ) # ...but is _not_ in the IV set less one - thus, the fit statistic here is a valid "increment" for the focal IV
+            #print("both are relevant?:", proceed_to_record, "\n") #//
+            if proceed_to_record: 
+                Relevant_Increments.append(Model_List[number_of_Indep_Vars][model][2]) # always collect the fit statistic for conditional dominance computations
+                if Complete_Flag:
+                    for other_model in range(0, len(Model_List[number_of_Indep_Vars])): # also proceed to collect complete dominance data using this loop comparing to all other models within this number of IVs to find relevant comparisons
+                        #print("Report 'other model' and does it contain same subset as focal? (cpt):",
+                              #[set(Model_List[number_of_Indep_Vars][other_model][0]), set(Model_List[number_of_Indep_Vars][model][0]).issubset(set(Model_List[number_of_Indep_Vars][other_model][0]))]) #//
+                        #print("Is the difference between 'other model' and focal one variable?: (cpt)",
+                              #[set(Model_List[number_of_Indep_Vars][other_model][1]), len(set(Model_List[number_of_Indep_Vars][model][1]).difference(set(Model_List[number_of_Indep_Vars][other_model][1]))) == 1]) #//
+                        relevant_complete = ( # a relevant complete dominance comparsion is found when ...
+                            set(Model_List[number_of_Indep_Vars][model][0]).issubset( set(Model_List[number_of_Indep_Vars][other_model][0]) ) and # ...the focal full model and the full other model have the same IV set (the only way they can be a 'subset' here) ...
+                            len(set(Model_List[number_of_Indep_Vars][model][1]).difference( set(Model_List[number_of_Indep_Vars][other_model][1])) ) == 1 ) #... but their reduced IV set differs by one IV (this ensures it is not trying to compare the subset to itself)
+                        #print("valid for cpt?:", relevant_complete) #//
+                        if relevant_complete: 
+                            #print("here goes!") #//
+                            #print([Position_IV[0] for Position_IV in Model_List[0]]) #//
+                            #print((set(Model_List[number_of_Indep_Vars][model][1]).difference(set(Model_List[number_of_Indep_Vars][other_model][1])).pop(),)) #//
+                            MatrixLocation_Complete = [Position_IV[0] for Position_IV in Model_List[0]].index(( # when a relevant comparison, obtain the index value for ...
+                                       set(Model_List[number_of_Indep_Vars][model][1]).difference( set(Model_List[number_of_Indep_Vars][other_model][1]) ).pop(), )) #... the different element in the reduced model (to place it in the correct "row" for the dominance matrix/list)
+                            #print(MatrixLocation_Complete) #//
+                            #print(Complete_atIndep_Var[MatrixLocation_Complete]) #//
+                            Complete_atIndep_Var[MatrixLocation_Complete].append( #at the correct location in the complete dominance matrix, append...
+                                Model_List[number_of_Indep_Vars][other_model][2] < Model_List[number_of_Indep_Vars][model][2] ) # ...whether the other model's increment is bigger than the focal
+                            #print(Complete_atIndep_Var) #//
+                        
+        Conditional_atIndep_Var.append(stat.mean(Relevant_Increments)) # compute conditional dominance at number of IVs for specific IV and append
+    
+    Conditional_Dominance.append(Conditional_atIndep_Var) # append full row of IV's conditional dominance statistics
+    if Complete_Flag: Complete_Dominance.append(Complete_atIndep_Var) # append full row of IV's complete dominance logicals/designations
+
+if Complete_Flag:
+    #print(Complete_Dominance) #//
+    #print(Complete_Dominance[0]) #//
+    #print(list(map(all, Complete_Dominance[0]))) #//
+    Complete_Dominance = [list(map(all, Indep_Var)) for Indep_Var in Complete_Dominance] # for each focal IV, make list comprehension that flags whether at each comparison (i.e., other IV) are all entries (i.e., specific comarisons between similar models) in list True?
+    #print(Complete_Dominance) #//
+    Complete_Dominance = [[int(IV_Other_Compare) for IV_Other_Compare in Indep_Var] for Indep_Var in Complete_Dominance] # for each IV and other comparison, change boolean to integer for use in Stata
+    #print(Complete_Dominance) #//
+
+if Conditional_Flag:
+    sfi.Matrix.create('r(cdldom)', len(Ensemble_of_Models), len(Ensemble_of_Models), 0) # create conditional dominance matrix container in Stata
+    sfi.Matrix.store('r(cdldom)', Conditional_Dominance) # post conditional dominance matrix
+    #print("conditional doms:", Conditional_Dominance) #//
+
+if Complete_Flag:
+    sfi.Matrix.create('r(cptdom)', len(Ensemble_of_Models), len(Ensemble_of_Models), 0) # create complete dominance matrix container in Stata
+    sfi.Matrix.store('r(cptdom)', Complete_Dominance) # post complete dominance matrix
+    #print("complete doms:", Complete_Dominance) #//
+
+    ## ~~ Compute general dominance and fit statistic  ~~ ##
+general = list(map(stat.mean, Conditional_Dominance)) # average conditional dominance statistics to produce general dominance
+#print("general doms:", general) #//
+
+#print(stat.fsum(general) + FitStat_Adjustment) #//
+FitStat = stat.fsum(general) + FitStat_Adjustment # adjust overall fit statistic by replacing all subsets component and constant model component
+sfi.Scalar.setValue('r(fs)', FitStat) # post overall fitstat
+
+sfi.Matrix.create('r(domwgts)', 1, len(Ensemble_of_Models), 0) # create general dominance matrix container in Stata
+sfi.Matrix.store('r(domwgts)', general)
+
+sfi.Matrix.create('r(sdomwgts)', 1, len(Ensemble_of_Models), 0) # create standardized general dominance matrix container in Stata
+sfi.Matrix.store('r(sdomwgts)', list(map(lambda x: x/FitStat, general)) )
+
+general_ranks = [sorted(general, reverse = True).index(iv)+1 for iv in general]
+#print(general_ranks) #//
+sfi.Matrix.create('r(ranks)', 1, len(Ensemble_of_Models), 0)
+sfi.Matrix.store('r(ranks)', general_ranks)
