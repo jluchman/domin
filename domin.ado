@@ -328,18 +328,11 @@ if strlen("`consmodel'") {																			//if the user desires to know what 
 
 /*begin dominance computations*/
 
-
-// <><><><> ?? python here?? <><><><> //
-
-
-
-tempfile pass_pickle
-
 quietly findfile st_domin_py.py
 
 python script "`r(fn)'", /*global*/ args("`reg'" "`dv'" `"`ivs'"' "`all'" ///
 	"`touse'" "`regopts'" "`fitstat'" "`mi'" "`miopts'" "`=`allfs'+`consfs''" "`conditional'" ///
-	"`complete'")
+	"`complete'" "`mifile'")
 
 /*translate r-class results into temp results*/	
 
