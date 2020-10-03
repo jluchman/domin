@@ -11,12 +11,7 @@ Dominance analysis{p_end}
 {title:Syntax}
 
 {phang}
-{cmd:domin} {it:depvar} [{it:indepvars} {ifin} {weight} {cmd:,} 
-{opt {ul on}f{ul off}itstat(scalar)} {opt {ul on}r{ul off}eg(command, options)} 
-{opt {ul on}s{ul off}ets((varlist) (varlist) ...)} {opt {ul on}a{ul off}ll(varlist)} 
-{opt {ul on}nocond{ul off}itional} {opt {ul on}nocom{ul off}plete} {opt {ul on}eps{ul off}ilon} 
-{opt mi} {opt miopt(mi_est_opts)} {opt {ul on}cons{ul off}model} 
-{opt {ul on}rev{ul off}erse}]
+{cmd:domin} {it:depvar} [{it:indepvars} {ifin} {weight} [{it:, options}]
 
 {phang}{cmd:pweight}s, {cmd:aweight}s, {cmd:iweight}s, and {cmd:fweight}s are allowed but must be able to be used by the 
 command in {opt reg()}, see help {help weights:weights}.  {help Time series operators} are also allowed for commands 
@@ -26,7 +21,18 @@ in {opt reg()}.
 
 {phang}{cmd:domin} requires installation of Ben Jann's {cmd:moremata} package (install here: {stata ssc install moremata}).
 
-{title:Description}
+{title:Table of Contents}
+
+{help domin##desc: 1. Description}
+{help domin##disp: 2. Display}
+{help domin##opts: 3. Options}
+{help domin##remark: 4. Final Remarks}
+{help domin##examp: 5. Examples}
+{help domin##sav: 6. Saved Results}
+{help domin##refs: 7. References}
+
+{marker desc}{...}
+{title:1. Description}
 
 {pstd}
 Dominance analysis determines the relative importance of independent variables in an estimation model based on contribution to an overall 
@@ -113,7 +119,8 @@ in the row completely dominates the independent variable in the column.  Convers
 variable in the row is completely dominated by the independent variable in the column.  A 0 value means no complete dominance designation 
 could be made as the comparison independent variables' incremental contributions differ in relative magnitude from model to model.
 
-{title:Display}
+{marker disp}{...}
+{title:2. Display}
 
 {pstd}
 {cmd:domin}, by default, will produce all three types (i.e., general, conditional, and complete) of dominance statistics.  The general dominance 
@@ -141,20 +148,20 @@ the independent variable associated with the column.
 Finally, if all three dominance statistics are reported, a "strongest dominance designations" list is reported.  The strongest dominance designations 
 list reports the strongest dominance designation between all pairwise, independent variable comparisons.
 
-{marker options}{...}
-{title:Options}
+{marker opts}{...}
+{title:3. Options}
 
 {phang}{opt fitstat(scalar)} refers {cmd:domin} to the scalar valued model fit summary statistic used to compute all dominance 
 statistics.  The scalar in {opt fitstat()} can be any {help return:returned}, {help ereturn:ereturned}, or other {help scalar:scalar}. 
 {cmd:domin} defaults to {opt fitstat(e(r2))} and will produce a warning denoting the default behavior.
 
-{phang}{opt reg(command, options)} refers {cmd:domin} to a command which produces the scalar in {opt fitstat()} - which can include any 
+{phang}{opt reg(command, command_options)} refers {cmd:domin} to a command which produces the scalar in {opt fitstat()} - which can include any 
 user-written {help program:program}.  User-written programs must follow the traditional Stata single equation {it: cmd depvar indepvars} syntax.  
 {opt reg()} also allows the user to pass options for the command used by {cmd:domin}.  When a comma is added in {opt reg()}, all the syntax 
 following the comma will be passed to each run of the command as options. {cmd:domin} defaults to {opt reg(regress)} and will produce a 
 warning denoting the default behavior.
 
-{phang}{opt sets()} binds together independent variables as a set in the all possible combinations ensemble. Hence, all variables in a set 
+{phang}{opt sets((indepvars_set1) ... (indepvars_setN))} binds together independent variables as a set in the all possible combinations ensemble. Hence, all variables in a set 
 will always appear together and are considered a single independent variable in the all possible combinations ensemble. 
 
 {pmore}The user can specify as many independent variable sets of arbitrary size as is desired.  The basic syntax follows: 
@@ -167,7 +174,7 @@ least one space.
 such as several dummy or effects codes reflecting mutually exclusive groups.  {help Factor variables} can be included in any 
 {opt sets()} (see Example #3 below).
 
-{phang}{opt all()} defines a set of independent variables to be included in all the combinations in the ensemble.  Thus, all independent 
+{phang}{opt all(indepvars_all)} defines a set of independent variables to be included in all the combinations in the ensemble.  Thus, all independent 
 variables included in the {opt all()} option are used as a set of covariates for which dominance statistics will not be computed.  Rather, 
 the magnitude of the overall fit statistic associated with the set of independent variables in the {opt all()} option are subtracted from 
 the dominance statistics for all independent 
@@ -218,7 +225,8 @@ However, dominance analysis can be applied to any model fit statistic (see Azen,
 {opt reverse} is then useful for the interpetation of dominance statistics based on overall model fit statistics that decrease with 
 better fit (e.g., AIC, BIC).
 
-{title:Final Remarks}
+{marker remark}{...}
+{title:4. Final Remarks}
 
 {pstd}It is the responsibility of the user to supply {cmd:domin} with an overall fit statistic that can be validly dominance analyzed.  
 Traditionally, only R2 and pseudo-R2 statistics have been used for dominance analysis due to their interpretability - but {cmd:domin} was 
@@ -262,72 +270,74 @@ follow the traditional {it:depvar indepvars} format.  As long as the wrapper pro
 errors by defualt, to respect the sampling design for complex survey data the user need only provide {cmd:domin} the {cmd:pweight} variable for 
 commands that accept {cmd:pweight}s (see Luchman, 2015).
 
-{title:Introductory examples}
+{marker examp}{...}
+{title:5. Examples}
 
-{phang} {cmd:webuse auto}{p_end}
+{phang} {stata sysuse auto}{p_end}
 
 {phang}Example 1: linear regression dominance analysis{p_end}
-{phang} {cmd:domin price mpg rep78 headroom} {p_end}
+{phang} {stata domin price mpg rep78 headroom} {p_end}
 
 {phang}Example 2: Ordered outcome dominance analysis with covariate (e.g., Luchman, 2014){p_end}
-{phang} {cmd:domin rep78 trunk weight length, reg(ologit) fitstat(e(r2_p)) all(turn)} {p_end}
+{phang} {stata domin rep78 trunk weight length, reg(ologit) fitstat(e(r2_p)) all(turn)} {p_end}
 
 {phang}Example 3: Binary outcome dominance analysis with factor varaible (e.g., Azen & Traxel, 2009) {p_end}
-{phang} {cmd:domin foreign trunk weight, reg(logit) fitstat(e(r2_p)) sets((i.rep78))} {p_end}
+{phang} {stata domin foreign trunk weight, reg(logit) fitstat(e(r2_p)) sets((i.rep78))} {p_end}
 
 {phang}Example 4: Comparison of interaction and non-linear variables {p_end}
-{phang} {cmd:generate mpg2 = mpg^2} {p_end}
-{phang} {cmd:generate headr2 = headroom^2} {p_end}
-{phang} {cmd:generate mpg_headr = mpg*headroom} {p_end}
-{phang} {cmd:regress mpg2 mpg} {p_end}
-{phang} {cmd:predict mpg2r, resid} {p_end}
-{phang} {cmd:regress headr2 headroom} {p_end}
-{phang} {cmd:predict headr2r, resid} {p_end}
-{phang} {cmd:regress mpg_headr mpg headroom} {p_end}
-{phang} {cmd:predict mpg_headrr, resid} {p_end}
-{phang} {cmd:domin price mpg headroom mpg2r headr2r mpg_headrr} {p_end}
+{phang} {stata generate mpg2 = mpg^2} {p_end}
+{phang} {stata generate headr2 = headroom^2} {p_end}
+{phang} {stata generate mpg_headr = mpg*headroom} {p_end}
+{phang} {stata regress mpg2 mpg} {p_end}
+{phang} {stata predict mpg2r, resid} {p_end}
+{phang} {stata regress headr2 headroom} {p_end}
+{phang} {stata predict headr2r, resid} {p_end}
+{phang} {stata regress mpg_headr mpg headroom} {p_end}
+{phang} {stata predict mpg_headrr, resid} {p_end}
+{phang} {stata domin price mpg headroom mpg2r headr2r mpg_headrr} {p_end}
 
 {phang}Example 5: Epsilon-based linear regression approach to dominance with bootstrapped standard errors{p_end}
-{phang} {cmd:bootstrap, reps(500): domin price mpg headroom trunk turn gear_ratio foreign length weight, epsilon} {p_end}
-{phang} {cmd:estat bootstrap}{p_end}
+{phang} {stata bootstrap, reps(500): domin price mpg headroom trunk turn gear_ratio foreign length weight, epsilon} {p_end}
+{phang} {stata estat bootstrap}{p_end}
 
 {phang}Example 6: Multivariate regression with wrapper {help mvdom}; using default Rxy metric (e.g., Azen & Budescu, 2006; LeBreton & Tonidandel, 2008){p_end}
-{phang} {cmd:domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight)) fitstat(e(r2))} {p_end}
+{phang} {stata domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight)) fitstat(e(r2))} {p_end}
 {phang}Comparison dominance analysis with Pxy metric{p_end}
-{phang} {cmd:domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight) pxy) fitstat(e(r2))} {p_end}
+{phang} {stata domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight) pxy) fitstat(e(r2))} {p_end}
 {phang}Comparison dominance analysis with {opt epsilon}{p_end}
-{phang} {cmd:domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight)) epsilon)} {p_end}
+{phang} {stata domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight)) epsilon)} {p_end}
 
 {phang}Example 7: Gamma regression with deviance fitstat and constant-only comparison using {opt reverse}{p_end}
-{phang} {cmd:domin price mpg rep78 headroom, reg(glm, family(gamma) link(power -1)) fitstat(e(deviance)) consmodel reverse} {p_end}
+{phang} {stata domin price mpg rep78 headroom, reg(glm, family(gamma) link(power -1)) fitstat(e(deviance)) consmodel reverse} {p_end}
 {phang} Comparison dominance analysis with {opt epsilon} {p_end}
-{phang} {cmd:domin price mpg rep78 headroom, reg(glm, family(gamma) link(power -1)) epsilon} {p_end}
+{phang} {stata domin price mpg rep78 headroom, reg(glm, family(gamma) link(power -1)) epsilon} {p_end}
 
 {phang}Example 8: Mixed effects regression with wrapper {help mixdom} (e.g., Luo & Azen, 2013){p_end}
-{phang} {cmd:webuse nlswork, clear}{p_end}
-{phang} {cmd:domin ln_wage tenure hours age collgrad, reg(mixdom, id(id)) fitstat(e(r2_w)) sets((i.race))} {p_end}
+{phang} {stata webuse nlswork, clear}{p_end}
+{phang} {stata domin ln_wage tenure hours age collgrad, reg(mixdom, id(id)) fitstat(e(r2_w)) sets((i.race))} {p_end}
 
 {phang}Example 9: Multinomial logistic regression with simple program to return BIC {p_end}
-{phang} {cmd:program define myprog, eclass}{p_end}
-{phang} {cmd:syntax varlist if , [option]}{p_end}
-{phang} {cmd:tempname estlist}{p_end}
-{phang} {cmd:mlogit `varlist' `if'}{p_end}
-{phang} {cmd:estat ic}{p_end}
-{phang} {cmd:matrix `estlist' = r(S)}{p_end}
-{phang} {cmd:ereturn scalar bic = `estlist'[1,6]}{p_end}
-{phang} {cmd:end}{p_end}
-{phang} {cmd:domin race tenure hours age nev_mar, reg(myprog) fitstat(e(bic)) consmodel reverse} {p_end}
+{phang} {stata program define myprog, eclass}{p_end}
+{phang} {stata syntax varlist if , [option]}{p_end}
+{phang} {stata tempname estlist}{p_end}
+{phang} {stata mlogit `varlist' `if'}{p_end}
+{phang} {stata estat ic}{p_end}
+{phang} {stata matrix `estlist' = r(S)}{p_end}
+{phang} {stata ereturn scalar bic = `estlist'[1,6]}{p_end}
+{phang} {stata end}{p_end}
+{phang} {stata domin race tenure hours age nev_mar, reg(myprog) fitstat(e(bic)) consmodel reverse} {p_end}
 {phang} Comparison dominance analysis with McFadden's pseudo-R2 {p_end}
-{phang} {cmd:domin race tenure hours age nev_mar, reg(mlogit) fitstat(e(r2_p))} {p_end}
+{phang} {stata domin race tenure hours age nev_mar, reg(mlogit) fitstat(e(r2_p))} {p_end}
 
 {phang}Example 10: Multiply imputed dominance analysis {p_end}
-{phang} {cmd:webuse mheart1s20, clear} {p_end}
-{phang} {cmd:domin attack smokes age bmi hsgrad female, reg(logit) fitstat(e(r2_p)) mi} {p_end}
+{phang} {stata webuse mheart1s20, clear} {p_end}
+{phang} {stata domin attack smokes age bmi hsgrad female, reg(logit) fitstat(e(r2_p)) mi} {p_end}
 {phang} Comparison dominance analysis without {cmd:mi} ("in 1/154" keeps only original observations for comparison as in 
 {bf:{help mi_intro_substantive:[MI] intro substantive}}) {p_end}
-{phang} {cmd:domin attack smokes age bmi hsgrad female in 1/154, reg(logit) fitstat(e(r2_p))} {p_end}
+{phang} {stata domin attack smokes age bmi hsgrad female in 1/154, reg(logit) fitstat(e(r2_p))} {p_end}
 
-{title:Saved results}
+{marker sav}{...}
+{title:6. Saved Results}
 
 {phang}{cmd:domin} saves the following results to {cmd: e()}:
 
@@ -360,7 +370,8 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {p2col 5 15 19 2: functions}{p_end}
 {synopt:{cmd:e(sample)}}marks estimation sample{p_end}
 
-{title:References}
+{marker refs}{...}
+{title:7. References}
 
 {p 4 8 2}Azen, R., Budescu, D. V., & Reiser, B. (2001). Criticality of predictors in multiple regression. {it:British Journal of Mathematical and Statistical Psychology, 54(2)}, 201-225.{p_end}
 {p 4 8 2}Azen, R. & Budescu D. V. (2003). The dominance analysis approach for comparing predictors in multiple regression. {it:Psychological Methods, 8}, 129-148.{p_end}
@@ -372,7 +383,7 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {p 4 8 2}LeBreton, J. M., Ployhart, R. E., & Ladd, R. T. (2004). A Monte Carlo comparison of relative importance methodologies. {it:Organizational Research Methods, 7(3)}, 258-282.{p_end}
 {p 4 8 2}LeBreton, J. M., & Tonidandel, S. (2008). Multivariate relative importance: Extending relative weight analysis to multivariate criterion spaces. {it:Journal of Applied Psychology, 93(2)}, 329-345.{p_end}
 {p 4 8 2}LeBreton, J. M., Tonidandel, S., & Krasikova, D. V. (2013). Residualized relative importance analysis a technique for the comprehensive decomposition of variance in higher order regression models. {it:Organizational Research Methods}, 16(3)}, 449-473.{p_end}
-{p 4 8 2}Luchman, J. N. (2015). Determining subgroup difference importance with complex survey designs: An application of weighted dominance analysis. {it:Survey Practice, 8(5)}, 1–10.{p_end}
+{p 4 8 2}Luchman, J. N. (2015). Determining subgroup difference importance with complex survey designs: An application of weighted dominance analysis. {it:Survey Practice, 8(5)}, 1â€“10.{p_end}
 {p 4 8 2}Luchman, J. N. (2014). Relative importance analysis with multicategory dependent variables: An extension and review of best practices. {it:Organizational Research Methods, 17(4)}, 452-471.{p_end}
 {p 4 8 2}Luo, W., & Azen, R. (2013). Determining predictor importance in hierarchical linear models using dominance analysis. {it:Journal of Educational and Behavioral Statistics, 38(1)}, 3-31.{p_end}
 {p 4 8 2}Tonidandel, S., & LeBreton, J. M. (2010). Determining the relative importance of predictors in logistic regression: An extension of relative weight analysis. {it:Organizational Research Methods, 13(4)}, 767-781.{p_end}
