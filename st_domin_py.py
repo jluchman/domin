@@ -19,6 +19,7 @@ FitStat_Adjustment = float(use_stata_arguments[10])
 Conditional_Flag = not bool(len(use_stata_arguments[11]))
 Complete_Flag = not bool(len(use_stata_arguments[12]))
 Mult_Impute_File = use_stata_arguments[13]
+Mult_Imputes_toUse = use_stata_arguments[14]
 
 
     # ~~ Create independent variable list ~~ #
@@ -78,18 +79,18 @@ def st_model_call_mi(Indep_Var_combination, report):  # multiple imputation-base
                          " if " + If_Conditions +
                           "," + Regress_Options ) 
     
-    Imputations = int(sfi.Scalar.getValue("e(M_mi)")) # note number of imputations
+    Imputations = [int(imputation) for imputation in Mult_Imputes_toUse.split(" ")] # note imputations used 
     
     Mult_Impute_FitStat = 0
     
-    for imputation in range(Imputations):
-        sfi.SFIToolkit.stata("estimates use " + Mult_Impute_File + ", number(" + str(imputation+1) + ")")
+    for imputation in Imputations: 
+        sfi.SFIToolkit.stata("estimates use " + Mult_Impute_File + ", number(" + str(imputation) + ")")
         
         Mult_Impute_FitStat = Mult_Impute_FitStat + sfi.Scalar.getValue(Fit_Statistic) # add to running sum of fit statistics
     
     if report: print(".", end="")
     
-    Mult_Impute_FitStat = Mult_Impute_FitStat/Imputations # average the fit statistic values
+    Mult_Impute_FitStat = Mult_Impute_FitStat/len(Imputations) #Imputations # average the fit statistic values
     
     return( (Indep_Var_combination,
              Mult_Impute_FitStat) ) 
