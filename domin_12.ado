@@ -1,11 +1,11 @@
-*! domin_12: copied from domin version 3.2 4/8/2016 Joseph N. Luchman
+*! domin_12: version 1.0 11/./2020 Joseph N. Luchman
 
 program define domin_12, eclass //history and version information at end of file
 
 version 12.1
 
 syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , [Reg(string) Fitstat(string) Sets(string) /// define syntax
-All(varlist fv ts) noCOMplete noCONditional EPSilon mi miopt(string) CONSmodel REVerse noPYthon]
+All(varlist fv ts) noCOMplete noCONditional EPSilon mi miopt(string) CONSmodel REVerse noPYthon] //note -nopython- not an actively used option
 
 /*defaults and warnings*/
 if !strlen("`reg'") { //if no "reg" option specified - notify and use default "regress"
@@ -201,7 +201,9 @@ mark `touse'	//declare marking variable
 
 quietly generate byte `keep' = 1 `if' `in' //generate tempvar that adjusts for "if" and "in" statements
 
-markout `touse' `dv' `mkivs' `all' `keep'	//do the sample marking
+if !strlen("`mi'") markout `touse' `dv' `mkivs' `all' `keep'										//do the sample marking
+
+else markout `touse' `keep'
 
 local nobindivs = subinstr("`ivs'", "<", "", .)	//take out left binding character(s) for use in adjusting e(sample) when obs are dropped by an anslysis
 
@@ -213,7 +215,7 @@ if !strlen("`epsilon'") {	//don't invoke program checks if epsilon option is inv
 
 	else {
 
-		capture mi estimate, saving(`mifile') `miopt': `reg' `dv' `nobindivs' `all' [`weight'`exp'] if `keep', `regopts'	//run overall analysis with mi prefix - probe to check for e(sample) and whether everything works as it should
+		capture mi estimate, saving(`mifile') `miopt': `reg' `dv' `nobindivs' `all' [`weight'`exp'] if `touse', `regopts'	//run overall analysis with mi prefix - probe to check for e(sample) and whether everything works as it should
 
 		if _rc {	//if something's amiss with mi...
 		
@@ -223,13 +225,19 @@ if !strlen("`epsilon'") {	//don't invoke program checks if epsilon option is inv
 			
 		}
 		
-		else estimates use `mifile', number(`:word 1 of `e(m_est_mi)'')	//if touse doesn't equal e(sample) - use e(sample) from first imputation and proceed
+		local mi_imp_list = "`e(m_est_mi)'"
+	
+		else estimates use `mifile', number(`:word 1 of `e(m_est_mi)'')								//pull first estimate set to do fitstat and other checks
+	
+		scalar `obs' = e(N) 																		//collect N for MI
 	
 	}
 	
 	quietly count if `touse'	//tally up observations from count based on "touse"
 
 	if r(N) > e(N) & !strlen("`mi'") quietly replace `touse' = e(sample)	//if touse doesn't equal e(sample) - use e(sample) and proceed; not possible with multiple imputation though
+	
+	if !strlen("`mi'") scalar `obs' = r(N)  															//update for non-MI to obtain N
 
 	if _rc {	//exit if regression is not estimable or program results in error - return the returned code
 
@@ -260,30 +268,6 @@ if !strlen("`epsilon'") {	//don't invoke program checks if epsilon option is inv
 	}
 	
 }
-
-if !inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {	//if weights don't affect obs
-	
-	quietly count if `touse'	//tally up "touse" if not "mi"
-	
-	scalar `obs' = r(N)	//pull out the number of observations included
-	
-}
-
-else if inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {	//if the weights do affect obs
-
-	quietly summarize `=regexr("`exp'", "=", "")' if `touse'	//tally up "touse" by summing weights
-	
-	scalar `obs' = r(sum)	//pull out the number of observations included
-	
-}
-
-else {
-
-	quietly mi estimate, `miopt': regress `dv' `nobindivs' `all' [`weight'`exp'] if `keep'	//obtain estimate of obs when multiply imputed
-	
-	scalar `obs' = e(N)	//pull out the number of observations included
-
-}
  
 /*begin estimation*/
 scalar `allfs' = 0	//begin by defining the fitstat of the "all" variables as 0 - needed for dominance() function
@@ -300,7 +284,7 @@ if `:list sizeof all' {	//if there are variables in the "all" list
 	
 	else {	//if "mi" is specified
 	
-		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' `all' [`weight'`exp'] if `keep', `regopts'	//run mi analysis with "all" independent variables only
+		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' `all' [`weight'`exp'] if `touse', `regopts'	//run mi analysis with "all" independent variables only
 	
 		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')	//call mi_dom program to average fitstats
 		
@@ -324,7 +308,7 @@ if strlen("`consmodel'") {	//if the user desires to know what the baseline fitst
 	
 	else {	//if "mi" is declared
 	
-		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' [`weight'`exp'] if `keep', `regopts'	//conduct mi analysis without independent variables
+		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' [`weight'`exp'] if `touse', `regopts'	//conduct mi analysis without independent variables
 	
 		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')	//compute average fitstat
 		
@@ -1088,87 +1072,9 @@ end
 
 /* programming notes and history
 
-- domin version 1.0 - date - April 4, 2013
+- domin_12 version 1.0 - date - Nov ..., 2020
 
-Basic version
+Basic version - mostly copied from -domin- V 3.2
+- fixed markout issue with -if- and -in- associated with -mi- options - streamlined sample size computation (consistent with -domin-)
 
------
-
-- domin version 1.1 - date - April 13, 2013
-
-//notable changes\\
--fixed incorrect e(cmd) and e(cmdline) entries
--fixed markout variables for sets greater than 1
-
------
-
-- domin version 1.2 - date - April 16, 2013
-
-//notable changes\\ 
--version 12.1 declared to ensure compatability with factor variables and other advertised features (thanks to Nick Cox for advice on this issue)
--fixed markout problem that kept unwanted characters in markout statement (thanks to Ariel Linden for pointing this out)
--analytic weights disallowed; importance weights allowed in dominance analysis consistent with underlying linear and logit-based regressions
-
------
-
-- domin version 2.0 - date - Aug 25, 2013
-
-//notable changes\\
--tuples, all subset regression, and dominance computations migrated to Mata (thanks to all individuals who pointed out the errors tuples caused when interfacing with domin)
--incorporates complete and conditional dominance criteria
--ranking of predictors returned as a matrix, e(ranking)
--bug related to if and in qualifiers resolved
--dots representing each regression replaced with a progress bar for predictors/sets >6 or >4 (for logits)
--piechart dropped as option
--altered adjusted domin weight computation to result in decomposition of adjusted r2's from full regression
--incorporates "epsilon" or relative weights approach to general dominance (for regress only)
--McFadden's pseudo-R2 used for logit-based models (for consistency with Azen & Traxel, 2009)
-
------
-
-- domin version 3.0 - date - Jan 15, 2014
-
-//notable changes\\
--R2-type metrics no longer default.  Any valid model fit metric can be used.  Consequently, adj R2 was also removed.
--increased flexibility of estimation commands to be used by domin.  Any command that follows standard syntax could potentially be used.
--wrapper program mvdom and mixdom incorporated into domin package to demonstrate command's flexibility.
--due to flexibility in fitstat, constant-only model adjustment incorporated (similar to Stas Kolenikov's -shapley- on SSC) 
--error related to reported number of observations fixed when strongly collinear variables dropped.
--added multiple imputation support
--greatly expanded, clarified, and updated the help file
- 
- -----
-
-- domin version 3.1 - date - Apr 14, 2015
-
-//notable changes\\
--updated epsilon - works with glm, mvdom, and regress; also migrated to Mata (though not recommended approach - weights nixed for esplilon)
--reverse option to reverse "coding" of fitstat in ranks, standardized metric and complete dominance
--fixed tied ranks (used to randomly assign, - now share highest number)
--added "best dominance" - Com, Cond, Gen - in display (works with "reverse")
--removed unnecessary mata clear in dominance()
--time series operators allowed (for commands that allow them)
--tempfile error fixed for mi
--tempnames used for matrices
--fixed object declarations in dominance() function
--returns unabbreviated each variable in set and all sets lists
--added more ereturned information
--fixed error where all subsets fitstat was not adjusted for the constant-only fitstat
- 
- -----
-
-- domin version 3.2 - date - Apr 8, 2016
-  
- //notable changes\\
- -fixed use of total with mi to obtain N, doesn't work with tsvars and fvars, changed to regress
- -update predictor combination computation - use tuples' approach
- 
-
- 
- 
- for v. 4
-  -will incorporate miinc's interaction engine - adjusts averages to only include valid interaction combination w/ factor variables (or allow tuples' combination eliminator - later version, needs a pub to justify maybe... for now make fixes)
-  -will save info from all regressions for user to access in Mata object
-  -multi-equations (make a separate program)
-  -built in mcF and Estrella r2?
 */
