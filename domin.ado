@@ -151,7 +151,9 @@ mark `touse'																						//declare marking variable
 
 quietly generate byte `keep' = 1 `if' `in' 															//generate tempvar that adjusts for "if" and "in" statements
 
-markout `touse' `dv' `mkivs' `all' `keep'															//do the sample marking
+if !strlen("`mi'") markout `touse' `dv' `mkivs' `all' `keep'										//do the sample marking
+
+else markout `touse' `keep'
 
 local nobindivs = subinstr("`ivs'", "<", "", .)														//take out left binding character(s) for use in adjusting e(sample) when obs are dropped by an anslysis
 
@@ -161,8 +163,8 @@ if !strlen("`mi'") capture `reg' `dv' `nobindivs' `all' [`weight'`exp'] if `tous
 
 else {
 
-	capture mi estimate, saving(`mifile') `miopt': `reg' `dv' `nobindivs' `all' ///					//run overall analysis with mi prefix - probe to check for e(sample) and whether everything works as it should
-	[`weight'`exp'] if `keep', `regopts'	
+	capture mi estimate, saving(`mifile') `miopt': `reg' `dv' `nobindivs' `all' ///					//run overall analysis with mi prefix - probe to check whether everything works as it should
+	[`weight'`exp'] if `touse', `regopts'	
 
 	if _rc {																						//if something's amiss with mi...
 	
@@ -172,13 +174,19 @@ else {
 		
 	}
 	
-	else estimates use `mifile', number(`:word 1 of `e(m_est_mi)'')									//if touse doesn't equal e(sample) - use e(sample) from first imputation and proceed
+	local mi_imp_list = "`e(m_est_mi)'"
+	
+	else estimates use `mifile', number(`:word 1 of `e(m_est_mi)'')									//pull first estimate set to do fitstat and other checks
+	
+	scalar `obs' = e(N) 																			//collect N for MI
 
 }
 
 quietly count if `touse'																			//tally up observations from count based on "touse"
 
 if r(N) > e(N) & !strlen("`mi'") quietly replace `touse' = e(sample)								//if touse doesn't equal e(sample) - use e(sample) and proceed; not possible with multiple imputation though
+	
+if !strlen("`mi'") scalar `obs' = r(N)  															//update for non-MI to obtain N
 
 if _rc {																							//exit if regression is not estimable or program results in error - return the error code
 
@@ -209,30 +217,6 @@ if _rc {
 
 }
 
-if !inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {									//if weights don't affect obs
-	
-	quietly count if `touse'																		//tally up "touse" if not "mi"
-	
-	scalar `obs' = r(N)																				//pull out the number of observations included
-	
-}
-
-else if inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {								//if the weights do affect obs
-
-	quietly summarize `=regexr("`exp'", "=", "")' if `touse'										//tally up "touse" by summing weights
-	
-	scalar `obs' = r(sum)																			//pull out the number of observations included
-	
-}
-
-else {
-
-	quietly mi estimate, `miopt': regress `dv' `nobindivs' `all' [`weight'`exp'] if `keep'			//obtain estimate of obs when multiply imputed
-	
-	scalar `obs' = e(N)																				//pull out the number of observations included
-
-}
-
 /*all subsets model adjustment*/
 scalar `allfs' = 0																					//define the fitstat of the "all" variables as 0
 
@@ -249,7 +233,7 @@ if `:list sizeof all' {																				//if there are variables in the "all"
 	else {																							//if "mi" is specified
 	
 		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' `all' ///				//run mi analysis with "all" independent variables only
-		[`weight'`exp'] if `keep', `regopts'	
+		[`weight'`exp'] if `touse', `regopts'	
 	
 		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')								//call mi_dom program to average fitstats
 		
@@ -275,7 +259,7 @@ if strlen("`consmodel'") {																			//if the user desires to know what 
 	else {																							//if "mi" is declared
 	
 		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' ///						//conduct mi analysis without independent variables
-		[`weight'`exp'] if `keep', `regopts'	
+		[`weight'`exp'] if `touse', `regopts'	
 	
 		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')								//compute average fitstat
 		
@@ -290,8 +274,11 @@ if strlen("`consmodel'") {																			//if the user desires to know what 
 /*begin dominance computations*/
 quietly findfile st_domin_py.py																		//get location of Python script to dominance analyze									
 
+/**/ display "`mi_imp_list'"
+
 python script "`r(fn)'", args("`reg'" "`dv'" `"`ivs'"' "`all'" "`touse'" "`regopts'" ///
-	"`fitstat'" "`mi'" "`miopts'" "`=`allfs'+`consfs''" "`conditional'" "`complete'" "`mifile'")    //call to Python to compute all subsets
+	"`fitstat'" "`mi'" "`miopts'" "`=`allfs'+`consfs''" "`conditional'" "`complete'" "`mifile'" ///
+	"`mi_imp_list'")    //call to Python to compute all subsets
 
 /*translate r-class results into temp results*/	
 matrix `domwgts' = r(domwgts)
@@ -640,14 +627,14 @@ Basic version
 - domin version 3.2 - date - Apr 8, 2016
   
  //notable changes\\
- -fixed use of total with mi to obtain N, doesn't work with tsvars and fvars, changed to regress
- -update predictor combination computation - use tuples' approach
+-fixed use of total with mi to obtain N, doesn't work with tsvars and fvars, changed to regress
+-update predictor combination computation - use tuples' approach
  
  -----
 
 - domin version 4.0 - date - Nov ..., 2020
   
  //notable changes\\
- -Python backend to the all subsets estimation that calls Stata for modeling (developed in Python v. 3.8.2)
- -documentation update
- * fixed -if- and -in- bug with -mi- options
+-Python backend to the all subsets estimation that calls Stata for modeling (developed in Python v. 3.8.2)
+-documentation/helpfile update to ~ v16 format
+-fixed markout issue with -if- and -in- associated with -mi- options - streamlined sample size computation
