@@ -1,4 +1,4 @@
-*! domin version 3.2 4/8/2016 Joseph N. Luchman
+*! domin version 3.2.1  2/15/2021 Joseph N. Luchman
 
 program define domin, eclass //history and version information at end of file
 
@@ -1099,33 +1099,18 @@ void eps_ri(string scalar varlist, string scalar reg, string scalar touse, strin
 end
 
 /* programming notes and history
-
 - domin version 1.0 - date - April 4, 2013
-
-Basic version
-
 -----
-
 - domin version 1.1 - date - April 13, 2013
-
-//notable changes\\
 -fixed incorrect e(cmd) and e(cmdline) entries
 -fixed markout variables for sets greater than 1
-
 -----
-
 - domin version 1.2 - date - April 16, 2013
-
-//notable changes\\ 
 -version 12.1 declared to ensure compatability with factor variables and other advertised features (thanks to Nick Cox for advice on this issue)
 -fixed markout problem that kept unwanted characters in markout statement (thanks to Ariel Linden for pointing this out)
 -analytic weights disallowed; importance weights allowed in dominance analysis consistent with underlying linear and logit-based regressions
-
 -----
-
 - domin version 2.0 - date - Aug 25, 2013
-
-//notable changes\\
 -tuples, all subset regression, and dominance computations migrated to Mata (thanks to all individuals who pointed out the errors tuples caused when interfacing with domin)
 -incorporates complete and conditional dominance criteria
 -ranking of predictors returned as a matrix, e(ranking)
@@ -1135,12 +1120,8 @@ Basic version
 -altered adjusted domin weight computation to result in decomposition of adjusted r2's from full regression
 -incorporates "epsilon" or relative weights approach to general dominance (for regress only)
 -McFadden's pseudo-R2 used for logit-based models (for consistency with Azen & Traxel, 2009)
-
 -----
-
 - domin version 3.0 - date - Jan 15, 2014
-
-//notable changes\\
 -R2-type metrics no longer default.  Any valid model fit metric can be used.  Consequently, adj R2 was also removed.
 -increased flexibility of estimation commands to be used by domin.  Any command that follows standard syntax could potentially be used.
 -wrapper program mvdom and mixdom incorporated into domin package to demonstrate command's flexibility.
@@ -1148,12 +1129,8 @@ Basic version
 -error related to reported number of observations fixed when strongly collinear variables dropped.
 -added multiple imputation support
 -greatly expanded, clarified, and updated the help file
- 
- -----
-
+  -----
 - domin version 3.1 - date - Apr 14, 2015
-
-//notable changes\\
 -updated epsilon - works with glm, mvdom, and regress; also migrated to Mata (though not recommended approach - weights nixed for esplilon)
 -reverse option to reverse "coding" of fitstat in ranks, standardized metric and complete dominance
 -fixed tied ranks (used to randomly assign, - now share highest number)
@@ -1166,21 +1143,11 @@ Basic version
 -returns unabbreviated each variable in set and all sets lists
 -added more ereturned information
 -fixed error where all subsets fitstat was not adjusted for the constant-only fitstat
- 
  -----
-
 - domin version 3.2 - date - Apr 8, 2016
-  
- //notable changes\\
  -fixed use of total with mi to obtain N, doesn't work with tsvars and fvars, changed to regress
  -update predictor combination computation - use tuples' approach
- 
-
- 
- 
- for v. 4
-  -will incorporate miinc's interaction engine - adjusts averages to only include valid interaction combination w/ factor variables (or allow tuples' combination eliminator - later version, needs a pub to justify maybe... for now make fixes)
-  -will save info from all regressions for user to access in Mata object
-  -multi-equations (make a separate program)
-  -built in mcF and Estrella r2?
-*/
+ // 3.2.1 - Feb 15, 2021 (initiating new versioning: #major.#minor.#patch)
+ -update to documentation for SJ article
+ -fixed bug in -if- statements with -mi- (thanks to Annesa Flentje)
+ */

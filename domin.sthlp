@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.2 April 08 2016 J. N. Luchman}{...}
+{* *! version 3.2.1 February 15, 2021 J. N. Luchman}{...}
 {cmd:help domin}
 {hline}{...}
 
@@ -20,6 +20,16 @@ and {opt sets((varlist) (varlist) ...)} options and, like weights and time serie
 in {opt reg()}.
 
 {phang}{cmd:domin} requires installation of Ben Jann's {cmd:moremata} package (install here: {stata ssc install moremata}).
+
+{title:Development Webpage}
+
+{phang} Additional discussion of results, options, and conceptual issues on: 
+
+{phang}{browse "http://github.com/jluchman/domin/blob/master/README.md"}
+
+{phang} Please report bugs, requests for features, and contribute to as well as follow on-going development of {cmd:domin} on:
+
+{phang}{browse "http://github.com/jluchman/domin"}
 
 {title:Table of Contents}
 
@@ -397,7 +407,8 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {p 4}Arlington, VA{p_end}
 {p 4}jluchman@forsmarshgroup.com{p_end}
 
+
 {title:Acknowledgements}
 
-Thanks to Nick Cox, Ariel Linden, Amanda Yu, Torsten Neilands, Arlion N., Eric Melse, De Liu, and Patricia "Economics student" for suggestions 
-and bug reporting.
+Thanks to Nick Cox, Ariel Linden, Amanda Yu, Torsten Neilands, Arlion N, Eric Melse, De Liu, Patricia "Economics student", 
+and Annesa Flentje for suggestions and bug reporting.
