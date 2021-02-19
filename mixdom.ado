@@ -1,11 +1,21 @@
-*! mixdom version 1.1 3/11/2015 Joseph N. Luchman
+*! mixdom version 2.0 2/15/2021 Joseph N. Luchman
 
-version 12.1
+version 12
 
 program define mixdom, eclass
 
 syntax varlist(min = 2 fv ts) [pw fw] if, id(varlist max = 1 min = 1) [REopt(string) XTMopt(string) ///
-noConstant]
+Mopt(string) noConstant]
+
+if strlen("`xtmopt'") & strlen("`mopt'") {
+    display as err "{cmd:xtmopt} both {cmd:mopt} cannot be used together"
+	exit 198
+}
+
+if c(stata_version) >= 13 local reg "mixed"
+else local reg "xtmixed"
+
+if strlen("`xtmopt'") local mopt "`xtmopt'"
 
 tempname estmat r2w r2b base_e base_u mean_h
 
@@ -19,7 +29,7 @@ foreach temp in base_e base_u mean_h {
 
 }
 
-xtmixed `dv' `ivs' [`weight'`exp'] `if' , `constant' || `id':, `reopt' `xtmopt' nostderr
+`reg' `dv' `ivs' [`weight'`exp'] `if' , `constant' || `id':, `reopt' `mopt' nostderr
 
 matrix `estmat' = e(b)
 
@@ -49,7 +59,7 @@ di `r2b'
 
 if missing(`base_e') | missing(`base_u') {
 
-	xtmixed `dv' [`weight'`exp'] `if' , `constant' || `id':, `reopt' `xtmopt' nostderr
+	`reg' `dv' [`weight'`exp'] `if' , `constant' || `id':, `reopt' `mopt' nostderr
 
 	matrix `estmat' = e(b)
 
@@ -82,14 +92,13 @@ end
 /* programming notes and history
 
 - mixdom version 1.0 - date - Jan 15, 2014
-
 Basic version
-
 -----
-
 - mixdom version 1.1 - date - Mar 11, 2015
-
-//notable changes\\
 - added version statement (12.1)
 - time series operators allowed
 - removed scalars persisting after estimation
+-----
+- mixdom version 2.0.1 - date - Feb 15, 2021
+- -xtmopt()- depreciated in favor of -mopt()-
+-- v12...

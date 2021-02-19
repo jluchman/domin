@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1 March 11 2015 J. N. Luchman}{...}
+{* *! version 2.0.0 Feb 15, 2021 J. N. Luchman}{...}
 {cmd:help mixdom}
 {hline}{...}
 
@@ -12,7 +12,7 @@ Wrapper program for {cmd:domin} to conduct linear mixed effects regression domin
 
 {phang}
 {cmd:mixdom} {it:depvar} {it:indepvars} {it:{help if}} {weight} {cmd:,} 
-{opt id(idvar)} [{opt {ul on}re{ul off}opt(re_options)} {opt {ul on}xtm{ul off}opt(xtmixed_options)} {opt {ul on}noc{ul off}onstant}]
+{opt id(idvar)} [{opt {ul on}re{ul off}opt(re_options)} {opt {ul on}m{ul off}opt(mixed_options)} {opt {ul on}noc{ul off}onstant}]
 
 {phang}{cmd:pweight}s and {cmd:fweight}s are allowed (see help {help weights:weights}).  {help fvvarlist:Factor} and 
 {help tsvarlist:time series variables} are allowed.  
@@ -20,7 +20,7 @@ Wrapper program for {cmd:domin} to conduct linear mixed effects regression domin
 {title:Description}
 
 {pstd}
-{cmd:mixdom} sets the data up in a way to allow for the dominance analysis of a linear mixed effects regression by utilizing {help xtmixed}.
+{cmd:mixdom} sets the data up in a way to allow for the dominance analysis of a linear mixed effects regression by utilizing {help mixed}.
 The method outlined here follows that for the within- and between-cluster Snijders and Bosker (1994) R2 metric described by Luo and Azen (2013). 
 
 {pstd}
@@ -35,14 +35,16 @@ Negative R2 values indicate model misspecification.
 {title:Options}
 
 {phang}{opt id()} specifies the variable on which clustering occurs and that will appear after the random effects specification (i.e., ||) in the 
-{cmd:xtmixed} syntax.
+{cmd:mixed} syntax.
 
-{phang}{opt remopt()} passes options to {cmd: xtmixed} specific to the random intercept effect (i.e., {opt pweight()} the user would 
+{phang}{opt remopt()} passes options to {cmd: mixed} specific to the random intercept effect (i.e., {opt pweight()} the user would 
 like to utilize during estimation.
 
-{phang}{opt xtmopt()} passes options to {cmd:xtmixed} that the user would like to utilize during estimation.
+{phang}{opt mopt()} passes options to {cmd:mixed} that the user would like to utilize during estimation.
+This option was named {opt xtmopt()} in {cmd:mixdom} versions previous to 2.0.  {opt xtmopt()} still works in 
+{cmd:mixdom} 2.0 but cannot be used with {opt mopt()}.
 
-{phang}{opt noconstant} does not estimate an average fixed-effect constant (see option {opt noconstant} of {help xtmixed}).
+{phang}{opt noconstant} does not estimate an average fixed-effect constant (see option {opt noconstant} of {help mixed}).
 
 {title:Saved results}
 
@@ -69,5 +71,5 @@ like to utilize during estimation.
 {title:Also see}
 
 {psee}
-{manhelp xtmixed R}.
+{manhelp mixed R}.
 {p_end}
