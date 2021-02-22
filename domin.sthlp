@@ -212,7 +212,7 @@ Tonidandel, 2008; see also Example #6 below).  By default, {opt epsilon} assumes
 {opt epsilon} ignores entries in {opt fitstat()} as it produces its own fit statistic.
 
 {pmore}{cmd:Note:} The {opt epsilon} approach has been recently criticized for being conceptually flawed and biased (see Thomas, Zumbo, Kwan, 
-& Schweitzer, 2014), despite research showing similarity between dominance and {opt epsilon}-based methods (e.g., Ladd et al., 2004).  
+& Schweitzer, 2014), despite research showing similarity between dominance and {opt epsilon}-based methods (e.g., LeBreton et al., 2004).  
 Thus, the user is cautioned in the use of {opt epsilon} as its speed may come at the cost of bias.
 
 {phang}{opt mi} invokes Stata's {help mi} options within {cmd:domin}.  Thus, each analysis is run using the {cmd:mi estimate} prefix and all 
