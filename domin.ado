@@ -1,4 +1,4 @@
-*! domin version 3.2.1  2/15/2021 Joseph N. Luchman
+*! domin version 3.3.0  9/28/2021 Joseph N. Luchman
 
 program define domin, eclass //history and version information at end of file
 
@@ -649,29 +649,26 @@ mata:
 
 mata set matastrict on
 
-void dominance(string scalar ivs, string scalar cdlcompu, string scalar cptcompu, ///
-real scalar allfs, real scalar consfs, string scalar mi) 
+void dominance(string scalar ivs, string scalar cdlcompu, string scalar cptcompu, real scalar allfs, real scalar consfs, string scalar mi) 
 {
 	/*object declarations*/
-	real matrix include, noinclude, cdl, cdl1, cdl2, design, cpt, focus, rest, compare, eval, ///
-	selector1, selector2, eval2, selector3, selector4, indicators
+	real matrix include, noinclude, cdl, cdl1, cdl2, design, cpt, select2IVfits, indicators, sorted_two_IVs, compare_two_IVs
 
 	string matrix tuples
 
-	real rowvector fits, counts, combsinc, combsinc2, domwgts, sdomwgts
+	real rowvector fits, counts, combsinc, combsinc2, domwgts, sdomwgts, focal_row_numbers, nonfocal_row_numbers, cpt_desig
 
 	string rowvector preds
 
-	real colvector combin, cdl3, basecpt, combincpt, indicator, rowcol, basecpt2, combincpt2, ///
-	revind
+	real colvector combin, cdl3, cpt_setup_vec, select2IVs
 
 	string colvector iv_mat
 	
-	real scalar nvars, ntuples, display, fs, cptsum, comparecount, var1, var2, cptdom, x, y
+	real scalar nvars, ntuples, display, fs, var1, var2, x, y
 
 	string scalar ivuse
 	
-	transmorphic basiscpt, basiscpt2, t, wchars, pchars, qchars
+	transmorphic cpt_permute_container, t, wchars, pchars, qchars
 	
 	/*parse the predictor inputs*/	
 	t = tokeninit(wchars = (" "), pchars = (" "), qchars = ("<>")) //set up parsing rules
@@ -861,112 +858,57 @@ real scalar allfs, real scalar consfs, string scalar mi)
 	
 		if (nvars > 5) printf("\n{txt}Computing complete dominance\n")
 
-		cpt = J(nvars, nvars, 0) //dummy matrix for complete dominance
+		cpt = J(nvars, nvars, 0) //pre-allocate matrix for complete dominance
 		
-		basecpt = (J(2, 1, 1) \ J(nvars - 2, 1, 0)) //generate the "base" of the compare each 2 IVs
+		cpt_setup_vec = (J(2, 1, 1) \ J(nvars - 2, 1, 0)) //set-up a vector the length of the number of IVs with two "1"s and the rest "0"s; used to compare each 2 IVs via 'cvpermute()'
 	
-		basiscpt = cvpermutesetup(basecpt) //setup for the permutations
+		cpt_permute_container = cvpermutesetup(cpt_setup_vec) //create a 'cvpermute' container to extract all permutations of two IVs
 		
-		indicator = (1::nvars) //generate "indicator" for which variables are being compared
+		//indicator = (1::nvars) //generate "indicator" for which variables are being compared
 		
 		for (x = 1; x <= comb(nvars, 2); x++) {  
 		
-			combincpt = cvpermute(basiscpt) //invoke the current combination of 2 variables
+			select2IVs = cvpermute(cpt_permute_container) //invoke 'cvpermute' on the container - selects a unique combination of two IVs
+			select2IVs //
 		
-			rowcol = select(combincpt:*indicator, combincpt:==1) //note the row in which both variables being comapred are located
+			select2IVfits = colsum(select(indicators, select2IVs)):==1 //filter IV indicator matrix to include just those fit statistic columns that inlude focal IVs - then only keep the columns that have one (never both or neither) of the IVs 
+			select2IVfits //
 		
-			focus = select(sign(strlen(tuples)), combincpt:==1) //make a selector (1 vs. 0) matrix for pulling out all fitstats, only on focal IVs
-		
-			rest = select(sign(strlen(tuples)), combincpt:==0) //make a selector (1 vs. 0) matrix for pulling out all fitstats, only on non-focal IVs
 			
-			cptsum = 0 //used as a index for determining complete dominance for the current comparison of 2 IVs
+			"updated method"
+			focal_row_numbers = (1..rows(indicators)) //sequence of numbers for selecting specific rows indicating focal IVs
 			
-			compare = focus:*fits //create matrix of fitstats that correspond only to the focal comparisons
+			nonfocal_row_numbers = select(focal_row_numbers, (!select2IVs)') //select row numbers for all non-focal IVs; needed for sorting (below)
 			
-			for (y = 1; y <= nvars - 1; y++) { //for each order (up to # IVs - 1)
+			focal_row_numbers = select(focal_row_numbers, select2IVs') //select row numbers for all focal IVs; also needed for sorting
 			
-				eval = select(compare, counts:==y) //on the filtered fitstat matrix, pull out comparisons at a specific order
-				
-				selector1 = select(focus, counts:==y) //on the indicator matrix, pull out comparisons at a specific order
-				
-				selector1 = colsum(selector1) //on the filtered indicator matrix of order "y", enumerate # of IVs in each model
-				
-				selector2 = select(rest, counts:==y) //on the indicator matrix of non-focal vars, pull out comparisons at a specific order
-				
-				comparecount = 1 //counter to keep track of # of comparisons
-				
-				basecpt2 = (J(y - 1, 1, 1) \ J(nvars - y - 1, 1, 0)) //another looped permutation to make all the specific comparisons w/in order
-				
-				/*make comparisons between fitstat's - matching on predictors*/
-				while ((comparecount <= comb(nvars - 2, y - 1)) & (nvars > 2)) { //so long as there are > 2 IVs... loop for all comparisons
-					
-					if (y == 1) eval2 = select(eval, selector2[comparecount, .]:==0) //fitstats when only focal IV is in the model (y = 1 per row, i.e., the focal IVs)
-					
-					else if (y == 2) { //fitstats when 1 other non-focal variable is in the model
-					
-						eval2 = select(eval, selector1:==1)	//select the fitstats when only the focal IVs are in the model (i.e., not both IVs)
-						
-						selector3 = select(selector2, selector1:==1) //pull out the columns where there also the other non-focal IV
-					
-						eval2 = select(eval2, selector3[comparecount, .]:==1) //then select the fitstats where there are only the focal IVs (alone) with the non-focal IV
-					
-					}
-					
-					else { //fitstats when >=2 variables are in the model
-						
-						eval2 = select(eval, selector1:==1) //select the fitstats when only the focal IVs are in the model (i.e., not both IVs)
-						
-						selector3 = select(selector2, selector1:==1) //pull out the columns where there also the other non-focal IV
-						
-						basiscpt2 = cvpermutesetup(basecpt2) //set-up permutation of >1 variable to select all possible combinations
-						
-						combincpt2 = cvpermute(basiscpt2)*10 //activate permutation of >1 variable to select all possible combinations (rescaled by 10 for use in exponentiating)
-										
-						revind = (nvars - 2::1) //used for exponentiation below
-						
-						selector4 = J(nvars - 2, 1, 10) //base matrix to use for selecting fitstats - adjusted below
-						
-						combincpt2 = combincpt2:^revind*(1/10) //matrix which now indicates location of a variable positionally by # of 0s (re-scaled back down by 10)
-						
-						selector4 = selector4:^revind*(1/10) //obtain a selection matrix which is scaled the sdame as the combination matrix above
-						
-						selector4 = selector3:*selector4 //rescale the "selector3" matrix with only the current non-focal IVs are selected
-						
-						selector4 = colsum(selector4) //make selector4 a rowmat so select() can use it
-						
-						combincpt2 = colsum(combincpt2)	//make combincpt2 a rowmat so select() can use it
-						
-						eval2 = select(eval2, selector4:==combincpt2) //obtain only one specific combination of the non-focal IVs for the comparison				
-					
-					}
-				
-					/*here the comparison is actually made and "cptsum" is updated*/
-					var1 = rowsum(eval2[1, .]) //all the fitstats in row 1 call "var1" - sum them (there should only be 1)
-				
-					var2 = rowsum(eval2[2, .]) //all the fitstats in row 2 call "var2" - sum them (there should only be 1)
-				
-					cptdom = sign(var1 - var2) //is one bigger than the other? Keep sign only 
-								
-					cptsum = cptsum + cptdom //add sign to current sum
-					
-					comparecount++ //increment comparecount and evaluate the while statement above...
-					
-				}
-				
-			}
+			focal_row_numbers //
+			nonfocal_row_numbers //
 			
-			/*determine completely dominate, dominated by or none*/
-			if (nvars == 2) cptsum = sign(rowsum(compare[1, .]) - rowsum(compare[2, .])) //simple situation w/ 2 predictors
-		
-			if (cptsum == 2^(nvars - 2)) cpt[rowcol[1, 1], rowcol[2, 1]] = 1 //if all the cptdom comarisons were "+" then, there is complete dominance for "var1"
-		
-			else if (cptsum == -2^(nvars - 2)) cpt[rowcol[1, 1], rowcol[2, 1]]= -1 //if all the cptdom comarisons were "-" then, there is complete dominance for "var2"
-		
-			else cpt[rowcol[1, 1], rowcol[2, 1]] = 0 //otherwise no complete dominance
+			sorted_two_IVs = ///
+				sort((select((indicators \ fits), select2IVfits))', /// //combine the indicators for IVs and fit statistic matrix - selecting only those columns corresponding with fit statistics where the focal two IVs are located, then...
+					(nonfocal_row_numbers, focal_row_numbers)) // ...sort this matrix on the nonfocal IVs first then the focal IVs.  This ensures that sequential rows are comparable ~ all odd numbered rows can be compared with its subsequent even numbered row
+			sorted_two_IVs //
+			
+			compare_two_IVs = ///
+				(select(sorted_two_IVs[,cols(sorted_two_IVs)], mod(1::rows(sorted_two_IVs), 2)), /// //select the odd rows for comparison (see constuction of 'sorted_two_IVs')
+				select(sorted_two_IVs[,cols(sorted_two_IVs)], mod((1::rows(sorted_two_IVs)):+1, 2))) //select the even rows for comparison 
+			compare_two_IVs //
+			
+			cpt_desig = ///
+				(all(compare_two_IVs[,1]:>compare_two_IVs[,2]), /// //are all fit statistics in odd/first variable larger than the even/second variable?
+				all(compare_two_IVs[,1]:<compare_two_IVs[,2])) //are all fit statistics in even variable larger than the odd variable?
+			cpt_desig //
+			
+			if (cpt_desig[2] == 1) cpt[focal_row_numbers[2], focal_row_numbers[1]] = 1 	//if the even/second variables' results are all larger, record "1"...
+				else if (cpt_desig[1] == 1) cpt[focal_row_numbers[2], focal_row_numbers[1]] = -1 //else if the odd/first variables' results are all larger, record "-1"...
+					else cpt[focal_row_numbers[2], focal_row_numbers[1]] = 0 //otherwise record "0"...
+			
+			cpt //
 	
 		}
 		
-		cpt = cpt + cpt'*-1 ///*make cptdom matrix symmetric in what it is telling the user*/
+		cpt = cpt + cpt'*-1 //make cptdom matrix symmetric
 	
 		st_matrix("r(cptdom)", cpt) //return r-class matrix "cptdom"
 	
@@ -1150,4 +1092,7 @@ end
  // 3.2.1 - Feb 15, 2021 (initiating new versioning: #major.#minor.#patch)
  -update to documentation for SJ article
  -fixed bug in -if- statements with -mi- (thanks to Annesa Flentje)
+ ---
+ domin version 3.3.0 - Sept 28, 2021 
+ -bug fix and update to complete dominance computations - inconsistent computation of complete dominance designation
  */
