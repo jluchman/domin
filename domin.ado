@@ -383,7 +383,7 @@ else {
 /*name matrices*/
 matrix colnames `domwgts' = `diivs'	
 
-if strlen("`reverse'") {	//reverse the direction and interpretation of rank and standardized weights
+if strlen("`reverse'") {	//if 'reverse', invert the direction and interpretation of rank and standardized weights
 
 	mata: st_matrix("`sdomwgts'", (st_matrix("`domwgts'"):*-1):/sum(st_matrix("`domwgts'"):*-1))
 	
@@ -397,7 +397,7 @@ matrix colnames `ranks' = `diivs'
 
 if !strlen("`complete'") { 	
 
-	if strlen("`reverse'") mata: st_matrix("`cptdom'", st_matrix("`cptdom'"):*-1)
+	if strlen("`reverse'") mata: st_matrix("`cptdom'", st_matrix("`cptdom'"):*-1) //if 'reverse', invert the direction and interpretation of complete dominance
 
 	matrix colnames `cptdom' = `diivs'	
 	
@@ -641,90 +641,90 @@ if strlen("`e(all)'") display "{txt}Variables included in all subsets: `e(all)'"
 
 end
 
-/*Mata function to compute all tuples of predictors or predictor sets
-run all subsets regression, and compute all dominance criteria*/
+**# Mata function to compute all combinations of predictors or predictor sets run all subsets regression, and compute all dominance criteria
 version 12.1
 
 mata: 
 
 mata set matastrict on
 
-void dominance(string scalar ivs, string scalar cdlcompu, string scalar cptcompu, real scalar allfs, real scalar consfs, string scalar mi) 
+void dominance(string scalar iv_string, string scalar cdlcompu, string scalar cptcompu, real scalar all_subsets_fitstat, real scalar constant_model_fitstat, string scalar mi) 
 {
-	/*object declarations*/
-	real matrix include, noinclude, cdl, cdl1, cdl2, design, cpt, select2IVfits, indicators, sorted_two_IVs, compare_two_IVs
+	/*# object declarations*/
+	real matrix IV_antiindicator_matrix, conditional_dominance, weighted_order_fitstats, weighted_order1less_fitstats, weight_matrix, complete_dominance, select2IVfits, IV_indicator_matrix, sorted_two_IVs, compare_two_IVs
 
-	string matrix tuples
+	string matrix IV_name_matrix
 
-	real rowvector fits, counts, combsinc, combsinc2, domwgts, sdomwgts, focal_row_numbers, nonfocal_row_numbers, cpt_desig
+	real rowvector fitstat_vector, orders, combin_at_order, combin_at_order_1less, general_dominance, standardized, focal_row_numbers, nonfocal_row_numbers, cpt_desig, indicator_weight, antiindicator_weight
 
-	string rowvector preds
+	real colvector binary_pattern, cdl3, cpt_setup_vec, select2IVs
 
-	real colvector combin, cdl3, cpt_setup_vec, select2IVs
-
-	string colvector iv_mat
+	string colvector IVs
 	
-	real scalar nvars, ntuples, display, fs, var1, var2, x, y
+	real scalar number_of_IVs, number_of_regressions, display, fitstat, var1, var2, x, y
 
-	string scalar ivuse
+	string scalar IVs_in_model
 	
 	transmorphic cpt_permute_container, t, wchars, pchars, qchars
 	
-	/*parse the predictor inputs*/	
+	/*parse the predictor inputs*/
 	t = tokeninit(wchars = (" "), pchars = (" "), qchars = ("<>")) //set up parsing rules
 	
-	tokenset(t, ivs) //register the "ivs" matrix as the one to be parsed
+	tokenset(t, iv_string) //register the "iv_string" string scalar for parsing/tokenizing
 	
-	iv_mat = tokengetall(t)' //obtain all IV sets and IVs
-	
+	IVs = tokengetall(t)' //obtain all IV sets and IVs as a vector
+
 	/*remove characters binding sets together (i.e., "<>")*/
-	for (x = 1; x <= rows(iv_mat); x++) {
+	for (x = 1; x <= rows(IVs); x++) {
 	
-		if (substr(iv_mat[x], 1, 1) == "<") { //if any entry begins with "<"...
+		if (substr(IVs[x], 1, 1) == "<") { //if any entry begins with "<" (will be the case for any/all sets)...
 		
-			iv_mat[x] = substr(iv_mat[x], 1, strlen(iv_mat[x]) - 1) //first character removed ("<")
+			IVs[x] = substr(IVs[x], 1, strlen(IVs[x]) - 1) //first character removed ("<")
 			
-			iv_mat[x] = substr(iv_mat[x], 2, strlen(iv_mat[x])) //last character removed (">")
+			IVs[x] = substr(IVs[x], 2, strlen(IVs[x])) //last character removed (">")
 			
 		}
 		
 	}
 	
-	/*set-up and compute all n-tuples of predictors and predictor sets*/
-	nvars = rows(iv_mat) //compute total # of IV sets and IVs
+	/*set-up and compute all combinations of predictors and predictor sets*/
+	number_of_IVs = rows(IVs) //compute total number of IV sets and IVs
 	
-	ntuples = 2^nvars - 1 //compute total # of regressions
+	number_of_regressions = 2^number_of_IVs - 1 //compute total number of regressions
 	
-	printf("\n{txt}Total of {res}%f {txt}regressions\n", ntuples)
+	printf("\n{txt}Total of {res}%f {txt}regressions\n", number_of_regressions)
 	
-	if (nvars > 12) printf("\n{txt}Computing all predictor combinations\n")
+	if (number_of_IVs > 12) printf("\n{txt}Computing all predictor combinations\n")
 
-	indicators = J(nvars, 2^nvars, .)	//set up matrix to be filled in which will generate all subsets 
+	IV_indicator_matrix = J(number_of_IVs, 2^number_of_IVs, .)	//indicating the IV by it's sequence in the rows (each row is an IV) and presence in a model by the columns (each column is a model); all models and the IVs in those models will be represented in this matrix; the matrix starts off empty/as all missings
 	
-	for (x = 1; x <= rows(indicators); x++) {	//for each row in indicators matrix...
+	for (x = 1; x <= rows(IV_indicator_matrix); x++) {	//fills in the IV indicators matrix - for each row...
 	
-		combin = J(1, 2^(x-1), 0), J(1, 2^(x-1), 1)	//make a binary matrix - start small, a zero and a 1, then 2 0's and 2 1's, etc...
+		binary_pattern = J(1, 2^(x-1), 0), J(1, 2^(x-1), 1)	//...make a binary matrix that grows exponentially; (0,1), then (0,0,1,1), then (0,0,0,0,1,1,1,1) growing in size until it fills the entire set of columns with sequences of 0's and 1's...
 		
-		indicators[x, .] = J(1, 2^(nvars-x), combin)	//spread the binary matrix just created across all rows - net effect is staggering all binaries to obtain all subsets in the final matrix
+		IV_indicator_matrix[x, .] = J(1, 2^(number_of_IVs-x), binary_pattern)	//...spread the binary pattern across all rows forcing it to repeat when not long enough to fill all columns - net effect is staggering all binary patters across rows to obtain all subsets in the final matrix
 		
 	}
+
+	IV_indicator_matrix = IV_indicator_matrix[., 2..cols(IV_indicator_matrix)]	//omit the first column that indicates a model with no IVs
+
+	IV_indicator_matrix = (colsum(IV_indicator_matrix) \ IV_indicator_matrix)'	//transpose the indicator matrix and create a column indicating the "order"/number of IVs in the model - used to sort all the models
+
+	IV_indicator_matrix = sort(IV_indicator_matrix, (1..cols(IV_indicator_matrix)))	//sort beginning with the order of the model indicator column followed by all other columns's binary values - net effect results in same sort order as cvpermute() as desired/originally designed in domin 3.0
 	
-	indicators = indicators[|., 2\ ., .|]	//omit the first, null column
+	orders = (IV_indicator_matrix[.,1]')[rows(IV_indicator_matrix)..1] //keep the orders of each model - sort order is reversed below which is also implemented here
 	
-	indicators = (colsum(indicators) \ indicators)'	//create a "counts" column on which to sort
+	IV_indicator_matrix = IV_indicator_matrix[., 2..cols(IV_indicator_matrix)]'	//omit orders from IV indicators matrix and transpose back to the models as rows
 	
-	indicators = sort(indicators, (1..cols(indicators)))	//sort, beginning with counts, followed by all other rows - net effect results in same sort order as cvpermute()
+	//IV_indicator_matrix = sort(((cols(IV_indicator_matrix)::1), IV_indicator_matrix'), 1)[., 2..rows(IV_indicator_matrix)+1]'	//reverse sort order, functions below expect reversed order
+	IV_indicator_matrix = IV_indicator_matrix[., cols(IV_indicator_matrix)..1] // reverse the IV indicator matrix's order; functions below expect a reversed order as originally designed in domin 3.0
 	
-	indicators = indicators[|1, 2\ ., .|]'	//omit count's column created before
+	IV_name_matrix = IV_indicator_matrix:*IVs	//apply string variable names to all subsets indicator matrix 
 	
-	indicators = sort(((cols(indicators)::1), indicators'), 1)[., 2..rows(indicators)+1]'	//reverse sort order, dominance() expects reversed order
+ /*all subsets regressions and progress bar syntax if predictors or sets of predictors is above 5*/
+	display = 1 //for the display of dots during estimation - keeps track of where the regressions are - every 5% of models complete another "." is added
 	
-	tuples = indicators:*iv_mat	//apply string variable names to all subsets indicator matrix
-	
-	/*all subsets regressions and progress bar syntax if predictors or sets of predictors is above 5*/
-	display = 1 //for the display of dots during estimation - keeps track of where the regressions are - every 5% there is another "." added
-	
-	if (nvars > 4) {
+	if (number_of_IVs > 4) {
 	
 		printf("\n{txt}Progress in running all regression subsets\n{res}0%%{txt}{hline 6}{res}50%%{txt}{hline 6}{res}100%%\n")
 		
@@ -734,13 +734,13 @@ void dominance(string scalar ivs, string scalar cdlcompu, string scalar cptcompu
 		
 	}
 
-	fits = (.) //dummy vector that will contain fitstats across all 
+	fitstat_vector = J(1, cols(IV_indicator_matrix), .) //pre-allocate container vector that will contain fitstats across all models
 	
-	for (x = 1; x <= ntuples; x++) { //here all regressions 
+	for (x = 1; x <= number_of_regressions; x++) { //loop to obtain all possible regression subsets
 	
-		if (nvars > 4) {
+		if (number_of_IVs > 4) {
 	
-			if (floor(x/ntuples*20) > display) {
+			if (floor(x/number_of_regressions*20) > display) {
 			
 				printf(".")
 				
@@ -751,166 +751,137 @@ void dominance(string scalar ivs, string scalar cdlcompu, string scalar cptcompu
 			}
 			
 		}
-
-		preds = tuples[., x]' //take the names in column "x" and transpose into row
 	
-		ivuse = invtokens(preds) //collpase names into single string separated by spaces
+		IVs_in_model = invtokens(IV_name_matrix[., x]') //collect a distinct subset of IVs, then collpase names into single string separated by spaces
 	
-		if (strlen(mi) == 0) { //regular regression
+		if (strlen(mi) == 0) { //if not multiple imputation, then regular regression
 		
-			stata("\`reg' \`dv' \`all' " + ivuse + " [\`weight'\`exp'] if \`touse', \`regopts'", 1) //conduct regression
+			stata("\`reg' \`dv' \`all' " + IVs_in_model + " [\`weight'\`exp'] if \`touse', \`regopts'", 1) //conduct regression
 		
-			fs = st_numscalar(st_local("fitstat")) - allfs - consfs //record fitstat omitting constant and "all" subsets values
+			fitstat = st_numscalar(st_local("fitstat")) - all_subsets_fitstat - constant_model_fitstat //record fitstat omitting constant and all subsets values; note that the fitstat to be pulled from Stata is stored as the Stata local "fitstat"
 			
 		}
 		
-		else { //regression with "mi estimate:"
+		else { //otherwise, regression with "mi estimate:"
 		
-			stata("mi estimate, saving(\`mifile', replace) \`miopt': \`reg' \`dv' \`all' " + ivuse + ///
-			" [\`weight'\`exp'] if \`keep', \`regopts'", 1) //conduct regression with "mi estimate:"
+			stata("mi estimate, saving(\`mifile', replace) \`miopt': \`reg' \`dv' \`all' " + IVs_in_model + " [\`weight'\`exp'] if \`keep', \`regopts'", 1) //conduct regression with "mi estimate:"
 		
 			stata("mi_dom, name(\`mifile') fitstat(\`fitstat') list(\`=e(m_est_mi)')", 1) //use built-in program to obtain average fitstat across imputations
 			
-			fs = st_numscalar("r(passstat)") - allfs - consfs //record fitstat omitting constant and "all" subsets values with "mi estimate:"
+			fitstat = st_numscalar("r(passstat)") - all_subsets_fitstat - constant_model_fitstat //record fitstat omitting constant and "all" subsets values with "mi estimate:"
 		
 		}
 	
-		fits = (fits, fs) //add fitstat to vector of fitstats
+		fitstat_vector[1, x] = fitstat //add fitstat to vector of fitstats
 
 	}
-	
-	fits = fits[2..ntuples + 1] //only keep non-empty fitstats (i.e., omit the first empty one)
 
 	/*define the incremental prediction matrices and combination rules*/
-	include = sign(strlen(tuples)) // matrix indicating whether variable included in any regression associated with the "fits" vector
+	IV_antiindicator_matrix = (IV_indicator_matrix:-1) //matrix flagging which IVs are not included in each model and setting them up for a subtractive effect
+	
+	combin_at_order = J(1, number_of_regressions, 1):*comb(number_of_IVs, orders) //vector indicating the number of model combinations at each "order"/# of predictors for each models - this is used as a "weight" to construct general dominance statistics
+	
+	combin_at_order_1less = J(1, number_of_regressions, 1):*comb(number_of_IVs - 1, orders) //vector indicating the number of model combinations from the previous "order" - this is also used as a "weight" to construct general dominance statistics
+	
+	combin_at_order_1less[1] = 0 //replace missing first value in vector with 0
+	
+	combin_at_order = combin_at_order - combin_at_order_1less //remove # of combinations for the "order" less the value at "order" - 1; this gives the number of relevant combinations at each order that include the focal IV and thus produce the right weight for averaging
+	
+	indicator_weight = IV_indicator_matrix:*combin_at_order //"spread" the vector indicating number of combinations at the current order involving the relevant IV to all models including that IV - to be used as a weight for summing the fitstat values in raw form (not increments)
 
-	counts = colnonmissing(exp(ln(include))) //# of variables in each regression
+	antiindicator_weight = IV_antiindicator_matrix:*combin_at_order_1less //"spread" the vector indicating number of combinations at the previous order not involving the relevant IV to all models not including the relevant IV - these components assist to subtract out values to make the values "increments"
 
-	noinclude = (include:-1) //matrix indicating whether variable not included in any regression associated with the "fits" vector
+	/*define the full design matrix - compute general dominance (average conditional dominance across orders)*/
+	weight_matrix = ((indicator_weight + antiindicator_weight):*number_of_IVs):^-1 //combine weight matrices (which reflect the conditional dominance weights/within order averages) with the number of ivs (between order averages) and invert cell-wise - now can be multiplied by fit stat vector and summed to obtain general dominance statistics
+
+	general_dominance = colsum((weight_matrix:*fitstat_vector)') //general dominance weights created by computing product of weights and fitstats and summing for each IV row-wise; in implementing the rows are transposed and column summed so it forms a row vector as will be needed to make it an "e(b)" vector
+
+	fitstat = rowsum(general_dominance) + all_subsets_fitstat + constant_model_fitstat //total fitstat is then sum of gen. dom. wgts replacing the constant-only model and the "all" subsets stat
+
+	st_matrix("r(domwgts)", general_dominance) //return the general dom. wgts as r-class matrix
+
+	standardized = general_dominance:*fitstat^-1 //generate the standardized gen. dom. wgts
 	
-	combsinc = J(1, ntuples, 1):*comb(nvars, counts) //matrix indicating the number of combinations at each "order"/# of predictors
+	st_matrix("r(sdomwgts)", standardized) //return the stdzd general dom. wgts as r-class matrix
 	
-	combsinc2 = J(1, ntuples, 1):*comb(nvars - 1, counts) //matrix indicating the number of combinations at each "order"/# of predictors - 1
 	
-	combsinc2 = (0, combsinc2[., 2..ntuples]) //add a 0 to # combinations.. omit first "." value
+	// ~~ fix ranks so not reliant on 'mm_ranks'?
 	
-	combsinc = combsinc - combsinc2 //remove # of combinations for the "order" less the value at "order" - 1
 	
-	include = include:*combsinc //put all the adjusted combination counts into matrix when the variable is included
+	st_matrix("r(ranks)", mm_ranks(general_dominance'*-1, 1, 1)') //return the ranks of the general dom. wgts as r-class matrix
+
+	st_numscalar("r(fs)", fitstat) //return overall fit statistic in r-class scalar
 	
-	noinclude = noinclude:*combsinc2 //put all the "order" - 1 combination counts into matrix when the variable is not included
+	
+	// ~~ the right weight matrices for conditional dominance have been computed above - need not be repeated below
+	
 	
 	/*compute conditional dominance*/
 	if (strlen(cdlcompu) == 0) {
 	
-		if (nvars > 5) printf("\n\n{txt}Computing conditional dominance\n")
+		if (number_of_IVs > 5) printf("\n\n{txt}Computing conditional dominance\n")
 	
-		cdl = J(nvars, nvars, 0) //dummy matrix to hold conditional dominance stats
+		conditional_dominance = J(number_of_IVs, number_of_IVs, 0) //pre-allocate contrainer matrix to hold conditional dominance stats
 		
-		/*loop over orders (i.e., # of predictors) to obtain average incremental prediction within order*/
-		for (x = 1; x <= nvars; x++) { //proceed order by order
+		weighted_order_fitstats = ((IV_indicator_matrix:*combin_at_order):^-1):*fitstat_vector // create matrix fit stats weighted by within-order counts - to be summed to create the conditional dominance statistics; these fit stats are "raw"/not incrments without the antiindicators
 		
-			cdl1 = include:^-1 //invert the counts for indluded (as it makes the within-order averages)
-				
-			cdl2 = noinclude:^-1 //invert the counts for non-indluded (as it makes the within-order averages)
-			
-			cdl1 = select(cdl1:*fits, counts:==x) //at the focal order, obtain weighted fitstats
-			
-			if (x > 1) { // at all orders (>1) where the marginal contribution != to the fitstat itself
-			
-				cdl2 = select(cdl2:*fits, counts:==x-1) //weighted marginal contribution to fitstat at order - 1
-				
-				cdl3 = rowsum(cdl1) + rowsum(cdl2) //sum the marginal contributions (cdl2 values are negative)
-				
-			}
-				
-			else cdl3 = rowsum(cdl1) //sum the marginal contributions @ order 1
-						
-			cdl[., x] = cdl3 //replace the entries in cdl with the current values of cdl3, these are the within-order averages
+		weighted_order1less_fitstats = ((IV_antiindicator_matrix:*combin_at_order_1less):^-1):*fitstat_vector // create matrix fit stats weighted by within-order counts at the previous order - these are negative and also to be summed to create the conditional dominance statistics; they ensure that the values are increments
+		
+		/*loop over orders/number of predictors to obtain average incremental prediction within order*/
+		for (x = 1; x <= number_of_IVs; x++) { //proceed order by order
+		
+			conditional_dominance[., x] = rowsum(select(weighted_order_fitstats, orders:==x)):+rowsum(select(weighted_order1less_fitstats, orders:==x-1)) //sum the weighted fit statistics at the focal order and the weighted (negative) fit statistics from the previous order
 		
 		}
 		
-		st_matrix("r(cdldom)", cdl) //return r-class matrix "cdldom"
+		st_matrix("r(cdldom)", conditional_dominance) //return r-class matrix "cdldom"
 	
 	}
-	
-	/*define the full design matrix - compute general dominance (average conditional dominance across orders)*/
-	design = (include + noinclude):*nvars //create matrix that will have positive and negative signs in the correct places to obtain marginals - weight by number of variables total (between-order average of within-order averages)
-	
-	design = design:^-1 //invert design matrix to create weights
-	
-	domwgts = colsum((design:*fits)') //general dominance weights created by computing product of weights and fitstats and summing for each IV
-	
-	fs = rowsum(domwgts) + allfs + consfs //total fitstat is then sum of gen. dom. wgts replacing the constant-only model and the "all" subsets stat
-
-	st_matrix("r(domwgts)", domwgts) //return the general dom. wgts as r-class matrix
-
-	sdomwgts = domwgts:*fs^-1 //generate the standardized gen. dom. wgts
-	
-	st_matrix("r(sdomwgts)", sdomwgts) //return the stdzd general dom. wgts as r-class matrix
-	
-	st_matrix("r(ranks)", mm_ranks(domwgts'*-1, 1, 1)') //return the ranks of the general dom. wgts as r-class matrix
-
-	st_numscalar("r(fs)", fs) //return overall fit statistic in r-class scalar
 	
 	/*compute complete dominance*/
 	if (strlen(cptcompu) == 0) {
 	
-		if (nvars > 5) printf("\n{txt}Computing complete dominance\n")
+		if (number_of_IVs > 5) printf("\n{txt}Computing complete dominance\n")
 
-		cpt = J(nvars, nvars, 0) //pre-allocate matrix for complete dominance
+		complete_dominance = J(number_of_IVs, number_of_IVs, 0) //pre-allocate matrix for complete dominance
 		
-		cpt_setup_vec = (J(2, 1, 1) \ J(nvars - 2, 1, 0)) //set-up a vector the length of the number of IVs with two "1"s and the rest "0"s; used to compare each 2 IVs via 'cvpermute()'
+		cpt_setup_vec = (J(2, 1, 1) \ J(number_of_IVs - 2, 1, 0)) //set-up a vector the length of the number of IVs with two "1"s and the rest "0"s; used to compare each 2 IVs via 'cvpermute()'
 	
 		cpt_permute_container = cvpermutesetup(cpt_setup_vec) //create a 'cvpermute' container to extract all permutations of two IVs
 		
-		//indicator = (1::nvars) //generate "indicator" for which variables are being compared
-		
-		for (x = 1; x <= comb(nvars, 2); x++) {  
+		for (x = 1; x <= comb(number_of_IVs, 2); x++) {  
 		
 			select2IVs = cvpermute(cpt_permute_container) //invoke 'cvpermute' on the container - selects a unique combination of two IVs
-			select2IVs //
 		
-			select2IVfits = colsum(select(indicators, select2IVs)):==1 //filter IV indicator matrix to include just those fit statistic columns that inlude focal IVs - then only keep the columns that have one (never both or neither) of the IVs 
-			select2IVfits //
+			select2IVfits = colsum(select(IV_indicator_matrix, select2IVs)):==1 //filter IV indicator matrix to include just those fit statistic columns that inlude focal IVs - then only keep the columns that have one (never both or neither) of the IVs 
 		
-			
-			"updated method"
-			focal_row_numbers = (1..rows(indicators)) //sequence of numbers for selecting specific rows indicating focal IVs
+			focal_row_numbers = (1..rows(IV_indicator_matrix)) //sequence of numbers for selecting specific rows indicating focal IVs
 			
 			nonfocal_row_numbers = select(focal_row_numbers, (!select2IVs)') //select row numbers for all non-focal IVs; needed for sorting (below)
 			
 			focal_row_numbers = select(focal_row_numbers, select2IVs') //select row numbers for all focal IVs; also needed for sorting
 			
-			focal_row_numbers //
-			nonfocal_row_numbers //
-			
 			sorted_two_IVs = ///
-				sort((select((indicators \ fits), select2IVfits))', /// //combine the indicators for IVs and fit statistic matrix - selecting only those columns corresponding with fit statistics where the focal two IVs are located, then...
+				sort((select((IV_indicator_matrix \ fitstat_vector), select2IVfits))', /// //combine the indicators for IVs and fit statistic matrix - selecting only those columns corresponding with fit statistics where the focal two IVs are located, then...
 					(nonfocal_row_numbers, focal_row_numbers)) // ...sort this matrix on the nonfocal IVs first then the focal IVs.  This ensures that sequential rows are comparable ~ all odd numbered rows can be compared with its subsequent even numbered row
-			sorted_two_IVs //
 			
 			compare_two_IVs = ///
 				(select(sorted_two_IVs[,cols(sorted_two_IVs)], mod(1::rows(sorted_two_IVs), 2)), /// //select the odd rows for comparison (see constuction of 'sorted_two_IVs')
 				select(sorted_two_IVs[,cols(sorted_two_IVs)], mod((1::rows(sorted_two_IVs)):+1, 2))) //select the even rows for comparison 
-			compare_two_IVs //
 			
 			cpt_desig = ///
 				(all(compare_two_IVs[,1]:>compare_two_IVs[,2]), /// //are all fit statistics in odd/first variable larger than the even/second variable?
 				all(compare_two_IVs[,1]:<compare_two_IVs[,2])) //are all fit statistics in even variable larger than the odd variable?
-			cpt_desig //
 			
-			if (cpt_desig[2] == 1) cpt[focal_row_numbers[2], focal_row_numbers[1]] = 1 	//if the even/second variables' results are all larger, record "1"...
-				else if (cpt_desig[1] == 1) cpt[focal_row_numbers[2], focal_row_numbers[1]] = -1 //else if the odd/first variables' results are all larger, record "-1"...
-					else cpt[focal_row_numbers[2], focal_row_numbers[1]] = 0 //otherwise record "0"...
-			
-			cpt //
+			if (cpt_desig[2] == 1) complete_dominance[focal_row_numbers[1], focal_row_numbers[2]] = 1 	//if the even/second variables' results are all larger, record "1"...
+				else if (cpt_desig[1] == 1) complete_dominance[focal_row_numbers[1], focal_row_numbers[2]] = -1 //else if the odd/first variables' results are all larger, record "-1"...
+					else complete_dominance[focal_row_numbers[1], focal_row_numbers[2]] = 0 //otherwise record "0"...
 	
 		}
 		
-		cpt = cpt + cpt'*-1 //make cptdom matrix symmetric
+		complete_dominance = complete_dominance + complete_dominance'*-1 //make cptdom matrix symmetric
 	
-		st_matrix("r(cptdom)", cpt) //return r-class matrix "cptdom"
+		st_matrix("r(cptdom)", complete_dominance) //return r-class matrix "cptdom"
 	
 	}
 	
