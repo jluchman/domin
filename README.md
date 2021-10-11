@@ -1,27 +1,13 @@
 # Dominance Analysis
 ## A Stata Implementaion
 
-Dominance analysis (DA) determines the relative importance of independent variables in an 
-estimation model based on contribution to an overall model fit statistic (see Grömping, 2007 
-for a discussion).  DA is an ensemble method in which importance determinations about independent 
-variables are made by aggregating fit metrics across multiple models, though the method usually 
-requires the ensemble contain each possible combination of the independent variables in the 
-full model.
+Dominance analysis (DA) determines the relative importance of independent variables in an estimation model based on contribution to an overall model fit statistic (see Grömping, 2007 for a discussion).  DA is an ensemble method in which importance determinations about independent variables are made by aggregating fit metrics across multiple models, though the method usually requires the ensemble contain each possible combination of the independent variables in the full model.
 
-The all possible combinations ensemble with _p_ independent variables in the full model results 
-in 2^p-1^ models and fit statistics estimated.  That is, each combiation of _p_ variables 
-alterating between included versus excluded (i.e., the 2 base to the exponent) where the 
-constant(s)-only model is omitted (i.e., the -1 representing the distinct combination where 
-no independent variables are included; see Budescu, 1993).
+The all possible combinations ensemble with _p_ independent variables in the full model results in $2^{p-1}$ models and fit statistics estimated.  That is, each combination of _p_ variables alternating between included versus excluded (i.e., the 2 base to the exponent) where the constant(s)-only model is omitted (i.e., the -1 representing the distinct combination where no independent variables are included; see Budescu, 1993).
 
-`domin` is implemented as a flexible wrapper command that can be used with most Stata estimation 
-commands that follow the standard `depvar indepvars` format and return a scalar-valued fit 
-statistic; commands that do not either follow this format or do not return a scalar-valued fit 
-ststistic can be accommodated with a sub-wrapper command (an example of such a command is 
-included below).
+`domin` is implemented as a flexible wrapper command that can be used with most Stata estimation commands that follow the standard `depvar indepvars` format and return a scalar-valued fit statistic; commands that do not either follow this format or do not return a scalar-valued fit statistic can be accommodated with a sub-wrapper command (an example of such a command is included below).
 
-Some examples of the command as applied to Stata estimation commands are shown below after the 
-discussion of installation.
+Some examples of the command as applied to Stata estimation commands are shown below after the discussion of installation.
 
 # Installation and Updates
 ## Installing
@@ -32,8 +18,7 @@ To install `domin` type:
 
 In the Stata Command console window.  `domin` is supported from Stata version `12.1`.
 
-Note that `domin` requires the SSC package `moremata` and will ask to install this package if it 
-is not available.
+Note that `domin` requires the SSC package `moremata` and will ask to install this package if it is not available.
 
 ## Updating
 
@@ -45,15 +30,11 @@ In the Stata Command console window.
 
 # Extensive Introductory Example
 
-The example below focuses on a simpler predictive model but discusses conceptual elements of 
-DA more extensively.
+The example below focuses on a simpler predictive model but discusses conceptual elements of DA more extensively.
 
 ## Simple Linear Regression-based DA
 
-The default analysis for `domin` is `regress` with `fitstat(e(r2))` and these options do not 
-need to be typed (though if they are not, `domin` will throw a warning; see below). 
-The results of the analysis are shown as below including general, conditional, and complete 
-dominance results as well as the strongest dominance designations.
+The default analysis for `domin` is `regress` with `fitstat(e(r2))` and these options do not need to be typed (though if they are not, `domin` will throw a warning; see below). The results of the analysis are shown as below including general, conditional, and complete dominance results as well as the strongest dominance designations.
 
 ### General Dominance Statistics
 
@@ -85,31 +66,13 @@ Overall Fit Statistic     =                  0.2575
 -more-
 ```
 
-General dominance statistics are the most commonly reported and easiest to interpret of the 
-dominance statistics. 
-General dominance statistics are derived as the weighted average marginal/incremental 
-contribution to the overall fit statistic an independent variable makes across all models in 
-which the independent variable is included. 
-For example, _rep78_ has a value of **0.0218** which means, on average, _rep78_ results in an 
-increment to the R square of about two percentage points when it is included in the model.
+General dominance statistics are the most commonly reported and easiest to interpret of the dominance statistics. General dominance statistics are derived as the weighted average marginal/incremental contribution to the overall fit statistic an independent variable makes across all models in which the independent variable is included. For example, _rep78_ has a value of **0.0218** which means, on average, _rep78_ results in an increment to the R square of about two percentage points when it is included in the model.
 
-In addition, the general dominance statistics can be compared to one another to determine which 
-variables "generally dominate" others. Here, _rep78_'s larger general dominance statistic than 
-_headroom_ indicates that it "generally dominates"--and is thus more important than--_headroom_. 
-The only time a general dominance designation cannot be made between two independent variables 
-is when they are exactly equal. 
+In addition, the general dominance statistics can be compared to one another to determine which variables generally dominate others. Here, _rep78_'s larger general dominance statistic than _headroom_ indicates that it "generally dominates"--and is thus more important than--_headroom_. The only time a general dominance designation cannot be made between two independent variables is when they are exactly equal. 
 
-General dominance statistics are useful in that they distill the entire ensemble of models 
-estimated into a single value for each independent variable, which is why they are 
-easiest to interpret. 
-An additional useful property of the general dominance statistics is that they are 
-an additive decomposition of the fit statistic associated with the full model 
-(i.e., the general dominance statistics can be summed 
-to obtain the value of the full model's fit statistic) and equivalent to Shapley 
-values (see `findit shapley`). 
+General dominance statistics are useful in that they distill the entire ensemble of models estimated into a single value for each independent variable, which is why they are easiest to interpret. An additional useful property of the general dominance statistics is that they are an additive decomposition of the fit statistic associated with the full model (i.e., the general dominance statistics can be summed to obtain the value of the full model's fit statistic) and equivalent to Shapley values (see `findit shapley`). 
 
-Finally, general dominance statistics for an independent variable are the arithmetic average 
-of that independent variable's conditional dominance statistics discussed next.
+Finally, general dominance statistics for an independent variable are the arithmetic average of that independent variable's conditional dominance statistics discussed next.
 
 ### Conditional Dominance Statistics
 
@@ -125,47 +88,17 @@ headroom       0.0124       0.0094       0.0065
 -------------------------------------------------------------------------------------
 -more-
 ```
-Conditional dominance statistics are computed as the average incremental contributions to the 
-overall model fit statistic an independent variable makes within a single "order" of 
-models--where "order" refers to a distinct number of independent variables in the estimation 
-model. 
-In the example above, order one is `#indepvars:1` and refers to the incremental contribution 
-the independent variable makes by itself. 
-Order two is `#indepvars:2` and refers to the average incremental contribution the independent 
-variable makes beyond a single other independent variable. 
-Finally, order three is `#indepvars:3` and refers to the incremental contribution the 
-independent variable makes beyond the other two independent variables.
+Conditional dominance statistics are computed as the average incremental contributions to the overall model fit statistic an independent variable makes within a single "order" of models--where "order" refers to a distinct number of independent variables in the estimation model. In the example above, order one is `#indepvars:1` and refers to the incremental contribution the independent variable makes by itself. Order two is `#indepvars:2` and refers to the average incremental contribution the independent variable makes beyond a single other independent variable. Finally, order three is `#indepvars:3` and refers to the incremental contribution the independent variable makes beyond the other two independent variables.
 
-Each independent variable will have `p` different conditional dominance statistics. 
+Each independent variable will have _p_ different conditional dominance statistics. 
 
-Conditional dominance statistics, considered as a set, provide more information about 
-each independent variable than general dominance statistics. 
-Specifically, conditional dominance statistics show the effect of variable redundancy, 
-collinearity, and suppression effects as the user can see how the inclusion of any independent 
-variable is, on average, affected by the inclusion of other independent variables. 
-In the above conditional dominance matrix, observe the difference between the patterns of 
-results for _rep78_ and _headroom_. 
-_rep78_ shows suppression-like effects in that it grows in predictive usefulness with 
-more independent variables included in the model.
-By contrast, _headroom_ shows the opposite pattern shrinking in importance with more included 
-independent variables.
+Conditional dominance statistics, considered as a set, provide more information about each independent variable than general dominance statistics. 
+Specifically, conditional dominance statistics show the effect of variable redundancy, collinearity, and suppression effects as the user can see how the inclusion of any independent variable is, on average, affected by the inclusion of other independent variables. In the above conditional dominance matrix, observe the difference between the patterns of results for _rep78_ and _headroom_. _rep78_ shows suppression-like effects in that it grows in predictive usefulness with more independent variables included in the model. By contrast, _headroom_ shows the opposite pattern shrinking in importance with more included independent variables.
 
-As with general dominance statistics, conditional dominance statistics can be compared to 
-determine which "conditionally dominance" others.
-Consider _mpg_. It has larger conditional dominance statistics than independent variable _rep78_ 
-across all three orders and thus "conditionally dominates" _rep78_. 
-Conditional dominance is then determined for an independent variable over another
-when its conditional dominance statistics at each order are larger than another the other 
-independent variable's statistics across all `p` orders. 
-If, at any order, the conditional dominance statistics for two independent variables are equal 
-or there is a change rank order no conditional dominance designation can be made between those 
-independent variables. 
-Because it involves comparing more statistics to one another, conditional domiance is a 
-more stringent importance criterion than general dominance.
+As with general dominance statistics, conditional dominance statistics can be compared to determine which conditionally dominates others. Consider _mpg_. It has larger conditional dominance statistics than independent variable _rep78_ across all three orders and thus conditionally dominates _rep78_. Conditional dominance is then determined for an independent variable over another when its conditional dominance statistics at each order are larger than another the other independent variable's statistics across all _p_ orders. If, at any order, the conditional dominance statistics for two independent variables are equal or there is a change rank order no conditional dominance designation can be made between those independent variables. 
+Because it involves comparing more statistics to one another, conditional dominance is a more stringent importance criterion than general dominance.
 
-Conditional dominance imples general dominance as well, but the reverse is not true. 
-An independent variable can generally dominate another, but not conditionally dominate it. 
-For instance, _rep78_ generally dominates, but does not conditionally dominate, _headroom_.
+Conditional dominance implies general dominance as well, but the reverse is not true. An independent variable can generally dominate another, but not conditionally dominate it. For instance, _rep78_ generally dominates, but does not conditionally dominate, _headroom_.
 
 ### Complete Dominance Designations
 ```
@@ -180,31 +113,11 @@ dominates?:headroom           -1            0            0
 -------------------------------------------------------------------------------------
 -more-
 ```
-Complete dominance designations are made by comparing all possible incremental contributions 
-to model fit for two independent variables. 
-Complete dominance is the strongest evidence of importance across dominance designations as it 
-is the most stringent comparision, requiring that an independent variable **always** have a 
-larger increment to model fit across all,  2^(p-2)^ comparable individual models in the ensemble. 
-This metric is stringent as it is non-compensatory; it is not possible for some better
-incremental contributions to compensate for other, worse ones. 
+Complete dominance designations are made by comparing all possible incremental contributions to model fit for two independent variables. Complete dominance is the strongest evidence of importance across dominance designations as it is the most stringent comparison, requiring that an independent variable **always** have a larger increment to model fit across all,  2^(p-2)^ comparable individual models in the ensemble. This metric is stringent as it is non-compensatory; it is not possible for some better incremental contributions to compensate for other, worse ones. 
 
-By comparison to general and conditional dominance designations, the complete dominance 
-designation has no natural statistic onn which to report.
-That said, `domin` returns a complete dominance matrix which reads from the left to right. 
-Thus, a value of **1** means that the indepdendent variable in the row completely 
-dominates the independent variable in the column. 
-Conversely, a value of **-1** means the opposite, that the independent variable in 
-the row is completely dominated by the independent variable in the column. 
-A **0** value means no complete dominance designation could be made as the comparison 
-independent variables' incremental contributions differ in relative magnitude from model to model.
+By comparison to general and conditional dominance designations, the complete dominance designation has no natural statistic on which to report.That said, `domin` returns a complete dominance matrix which reads from the left to right. Thus, a value of **1** means that the independent variable in the row completely dominates the independent variable in the column. Conversely, a value of **-1** means the opposite, that the independent variable in the row is completely dominated by the independent variable in the column. A **0** value means no complete dominance designation could be made as the comparison independent variables' incremental contributions differ in relative magnitude from model to model.
 
-the example above shows that, _mpg_ has a larger incremental contribution to 
-model fit than _headroom_ across all comparable models and completely dominates it. 
-By contrast, _headroom_ and _rep78_ show a more complex relationship (as was seen in 
-their conditional dominance statistics) and no conditional dominance designation can be made.
-Complete dominance imples both general and conditional dominance, but, again, the 
-reverse is not true. Failure to obtain conditional dominance also implies failure to obtain 
-complete dominance.
+the example above shows that, _mpg_ has a larger incremental contribution to model fit than _headroom_ across all comparable models and completely dominates it. By contrast, _headroom_ and _rep78_ show a more complex relationship (as was seen in their conditional dominance statistics) and no conditional dominance designation can be made.Complete dominance implies both general and conditional dominance, but, again, the reverse is not true. Failure to obtain conditional dominance also implies failure to obtain complete dominance.
 
 ### Strongest Dominance Designtions
 
@@ -215,15 +128,11 @@ mpg completely dominates rep78
 mpg completely dominates headroom
 rep78 generally dominates headroom
 ```
-Finally, if all three dominance statistics are reported (i.e., `noconditional` and `nocomplete` 
-options are not used), a _strongest dominance designations_ list is reported.  The strongest 
-dominance designations list reports the strongest dominance designation between all pairwise, 
-independent variable comparisons.
+Finally, if all three dominance statistics are reported (i.e., `noconditional` and `nocomplete` options are not used), a _strongest dominance designations_ list is reported.  The strongest dominance designations list reports the strongest dominance designation between all pairwise, independent variable comparisons.
 
 # Brief Introductory Examples
 
-The examples below focuses expand to discuss more complex predictive models and Stata code 
-but somewhat less regarding conceptual implications.
+The examples below focuses expand to discuss more complex predictive models and Stata code but somewhat less regarding conceptual implications.
 
 ## Ordered Logistic Regression-based DA
 
@@ -274,22 +183,15 @@ length completely dominates weight
 Variables included in all subsets: turn
 ```
 
-As compared to the `regress`-based DA reported in the first example, this example includes a 
-covariate that is controlled for across all model subsets. 
+As compared to the `regress`-based DA reported in the first example, this example includes a covariate that is controlled for across all model subsets. 
 
-The `All Subsets Fit Stat.     =                  0.1003` result represents the amount 
-of the McFadden pseudo-R-square that is associated with the variable in all subsets 
-(i.e., in `all()`). 
+The `All Subsets Fit Stat.     =                  0.1003` result represents the amount of the McFadden pseudo-R-square that is associated with the variable in all subsets (i.e., in `all()`). 
 
-Note that the dominance statistics reported are now residualized and reflect the removal of 
-the all fitstats fit statistic. 
-Variables included in all subsets are also reported at the end of the results display 
-(e.g., `Variables included in all subsets: turn`).
+Note that the dominance statistics reported are now residual-ized and reflect the removal of the all fitstats fit statistic. Variables included in all subsets are also reported at the end of the results display (e.g., `Variables included in all subsets: turn`).
 
 ## Logistic Regression-based DA
 
-`logit` is another command that can be accommodated in `domin`.  In this example, _rep78_ is 
-used as a factor variable.
+`logit` is another command that can be accommodated in `domin`.  In this example, _rep78_ is used as a factor variable.
 
 ```
 . domin foreign trunk weight, reg(logit) fitstat(e(r2_p)) sets((i.rep78))
@@ -335,11 +237,7 @@ weight completely dominates set1
 Variables in set1: i.rep78
 ```
 
-The `sets()` option incorporates independent variables as inseparable sets that are considered 
-*an* independent variable in the DA. 
-The label for each set is denoted sequentially as they are included (e.g., _set1_). 
-In addition, variables in sets are included near the end of the output 
-(i.e., `Variables in set1: i.rep78`). 
+The `sets()` option incorporates independent variables as inseparable sets that are considered *an* independent variable in the DA. The label for each set is denoted sequentially as they are included (e.g., _set1_). In addition, variables in sets are included near the end of the output (i.e., `Variables in set1: i.rep78`). 
 
 # Intermediate Examples
 
@@ -347,12 +245,9 @@ These examples outline more complex applications of DA to Stata models.
 
 ## Linear Regression-based DA with Non-additive and Non-linear Effects
 
-The example below outlines a process in which two quadratic effects and a product are 
-residualized and used as independent variables in a linear regression-based DA to determine 
-their importance.
+The example below outlines a process in which two quadratic effects and a product are residual-ized and used as independent variables in a linear regression-based DA to determine their importance.
 
-The process involves residualizing the squared and product terms and using them, as is, in the
-DA.
+The process involves residual-izing the squared and product terms and using them, as is, in the DA.
 
 ```
 .     generate mpg2 = mpg^2
@@ -488,22 +383,15 @@ headr2r completely dominates mpg_headrr
 headroom generally dominates mpg_headrr
 ```
 
-In this case, the squared term for _mpg_ (i.e., _mpg2r_) was actually more important than most 
-other terms in the model. 
-This approach is based on the article by LeBreton, Tonidandel, and Krasikova (2013).
+In this case, the squared term for _mpg_ (i.e., _mpg2r_) was actually more important than most other terms in the model. This approach is based on the article by LeBreton, Tonidandel, and Krasikova (2013).
 
 ## Linear Regression-based Relative Weights Analysis with Bootstrapped Standard Errors
 
-`domin` can also estimate relative weights analysis (RWA) using the `epsilon` option. 
-RWA is a faster, approximation to DA and obviates the each subset regression by orthogonalizing 
-independent variables using singular value decomposition (see `matrix svd`). 
+`domin` can also estimate relative weights analysis (RWA) using the `epsilon` option. RWA is a faster, approximation to DA and obviates the each subset regression by orthogonal-izing independent variables using singular value decomposition (see `matrix svd`). 
 
-`epsilon`'s singular value decomposition approach is not equivalent to the all 
-possible combinations ensemble approach of DA but is many fold faster for models with many 
-independent variables and tends to produce similar answers regarding relative importance. 
+`epsilon`'s singular value decomposition approach is not equivalent to the all possible combinations ensemble approach of DA but is many fold faster for models with many independent variables and tends to produce similar answers regarding relative importance. 
 
-DA and RWA can also be `boostrap`-ped to obtain stadard errors and evaluate statistic 
-sampling stability if desired.
+DA and RWA can also be `boostrap`-ped to obtain standard errors and evaluate statistic sampling stability if desired.
 
 ```
 .     bootstrap, reps(500): domin price mpg headroom trunk turn gear_ratio foreign length weight, epsilon
@@ -561,13 +449,11 @@ Dominance analysis                              Number of obs     =         74
 (BC)   bias-corrected confidence interval
 ```
 
-Note that other Stata post-estimation commands such as `test` can be used to evaluate differences 
-between these statistics.
+Note that other Stata post-estimation commands such as `test` can be used to evaluate differences between these statistics.
 
 ## Multivariate Linear Regression-based DA
 
-`domin` comes packaged with a sub-wrapper program `mvdom` that allows for estimating DA 
-statistics with multiple dependent variables.
+`domin` comes packaged with a sub-wrapper program `mvdom` that allows for estimating DA statistics with multiple dependent variables.
 
 The model reflected in the `mvdom`-based DA below is:
 
@@ -621,13 +507,11 @@ mpg completely dominates trunk
 turn completely dominates trunk
 ```
 
-The dominance statistics above account for multiple dependent variables and are based on the 
-approach described by Azen and Budescu (2006).
+The dominance statistics above account for multiple dependent variables and are based on the approach described by Azen and Budescu (2006).
 
 ## Gamma regression-based DA
 
-`domin` allows for any scalar valued fit metric to br used as a DA-able metric and 
-thus statistics such as model deviance can be used.
+`domin` allows for any scalar valued fit metric to br used as a DA-able metric and thus statistics such as model deviance can be used.
 
 The example below uses a `glm` model with a gamma distribution.
 
@@ -674,22 +558,15 @@ mpg completely dominates headroom
 rep78 generally dominates headroom
 ```
 
-Important notes about this model is that a `consmodel` is estimated (e.g., 
-`Constant-only Fit Stat.   =                 11.6141`). 
-Like entries in the `all()` model, this value is subtracted from the DA statistics. 
+Important notes about this model is that a `consmodel` is estimated (e.g., `Constant-only Fit Stat.   =                 11.6141`). Like entries in the `all()` model, this value is subtracted from the DA statistics. 
 
-The `consmodel` differs from `all()` in that applies only to the estimation and removal of model 
-_cons_-tants/intercepts; this is useful when the constant-only model is non-zero.
-This DA also `reverse`s the interpretation of the fit metrics such that smaller values 
-represent more important independent variables (i.e., larger negative values).
+The `consmodel` differs from `all()` in that applies only to the estimation and removal of model _cons_-tants/intercepts; this is useful when the constant-only model is non-zero. This DA also `reverse`s the interpretation of the fit metrics such that smaller values represent more important independent variables (i.e., larger negative values).
 
 ## Linear Mixed-effects Regression-based DA
 
-`domin` also comes packaged with a sub-wrapper program `mixdom` that allows for estimating 
-DA statistics with linear mixed effects models.
+`domin` also comes packaged with a sub-wrapper program `mixdom` that allows for estimating DA statistics with linear mixed effects models.
 
-There can only be two levels of clustering/nesting in the data.  The analysis below uses 
-the within-cluster r-square and the underlying model would be represented by:
+There can only be two levels of clustering/nesting in the data.  The analysis below uses the within-cluster r-square and the underlying model would be represented by:
 
 `mixed ln_wage tenure hours age collgrad || id:`
 
@@ -764,14 +641,11 @@ The examples here outline some of the most advanced features of `domin`
 ## Multinomial Logistic Regression-based DA
 ### Custom Program Generation using BIC as Fit Statistic
 
-`domin` can be adapted to dominance analyze any user-generated model--so long as they adhere 
-to a specific structure `domin` expects.
+`domin` can be adapted to dominance analyze any user-generated model--so long as they adhere to a specific structure `domin` expects.
 
-Specifically, the program must `ereturn scalar` or `return scalar` the fit statistic and the 
-program's `syntax` must follow `syntax varlist if , [option]`. 
+Specifically, the program must `ereturn scalar` or `return scalar` the fit statistic and the program's `syntax` must follow `syntax varlist if , [option]`. 
 
-In the example below, a custom program _myprog_ is defined to obtain the Bayesian Information 
-Criterion following a `mlogit` for DA purposes.
+In the example below, a custom program `myprog` is defined to obtain the Bayesian Information Criterion following a `mlogit` for DA purposes.
 
 ```
 .     program define myprog, eclass
@@ -842,10 +716,7 @@ nev_mar completely dominates age
 ## Logistic Regression-based DA: Revisited
 ### Multiply Imputed Estimates
 
-`domin` can also accommodate multiply imputed data by including the `mi` option with 
-multiply imputed data. 
-By default, all imputations are used but options can be passed to `mi estimate` using 
-`domin`'s `miopts()` option.
+`domin` can also accommodate multiply imputed data by including the `mi` option with multiply imputed data. By default, all imputations are used but options can be passed to `mi estimate` using `domin`'s `miopts()` option.
 
 `domin` has been tested on `mi set` data styles of `wide`, `long`, and `flong`.
 

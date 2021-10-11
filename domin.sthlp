@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.2.1 February 15, 2021 J. N. Luchman}{...}
+{* *! version 3.3.0 September 28, 2021 J. N. Luchman}{...}
 {cmd:help domin}
 {hline}{...}
 
@@ -13,13 +13,14 @@ Dominance analysis{p_end}
 {phang}
 {cmd:domin} {it:depvar} [{it:indepvars} {ifin} {weight} [{it:, options}]
 
-{phang}{cmd:pweight}s, {cmd:aweight}s, {cmd:iweight}s, and {cmd:fweight}s are allowed but must be able to be used by the 
-command in {opt reg()}, see help {help weights:weights}.  {help Time series operators} are also allowed for commands 
-in {opt reg()} that accept them.  Finally, {help Factor variables} are also allowed, but can only be included in the {opt all(varlist)} 
-and {opt sets((varlist) (varlist) ...)} options and, like weights and time series operators, must be accepted by the command 
-in {opt reg()}.
+{phang}{cmd:pweight}s, {cmd:aweight}s, {cmd:iweight}s, and {cmd:fweight}s are allowed but must 
+be accepted by the command in {opt reg()}, see help {help weights:weights}.  {help Time series operators} 
+are allowed for commands in {opt reg()} that accept them.  {help Factor variables} are also 
+allowed, but can only be included in the {opt all(varlist)} and {opt sets((varlist) (varlist) ...)} 
+options and, like weights and time series operators, must be accepted by the command in {opt reg()}.
 
-{phang}{cmd:domin} requires installation of Ben Jann's {cmd:moremata} package (install here: {stata ssc install moremata}).
+{phang}{cmd:domin} requires installation of Ben Jann's {cmd:moremata} package 
+(install {stata ssc install moremata:here}).
 
 {title:Development Webpage}
 
@@ -45,118 +46,152 @@ in {opt reg()}.
 {title:1. Description}
 
 {pstd}
-Dominance analysis determines the relative importance of independent variables in an estimation model based on contribution to an overall 
-model fit statistic (see Gr{c o:}mping, 2007 for a discussion).  Dominance analysis is an ensemble method in which importance determinations 
-about independent variables are made by aggregating results across multiple models, though the method usually requires the ensemble contain 
-each possible combination of the independent variables in the full model.  The all possible combinations ensemble with {it:p} independent 
-variables in the full model results in 2^{it:p}-1 models estimated.  That is, each combiation of {it:p} variables alterating between included 
-versus excluded (i.e., the 2 base to the exponent) where the constant[s]-only model is omitted (i.e., the -1 representing the distinct 
-combination where no independent variables are included; see Budescu, 1993). {cmd:domin} derives 3 statistics from the 2^{it:p}-1 estimation models. 
+Dominance analysis (DA) is a methodology for determining the relative importance of independent 
+variables (IVs)/predictors/features in a predictive model. DA determines relative 
+importance based on each IV's contribution to prediction using several results that decompose and compare 
+the contribution each IV makes to an overall fit statistic compared to one another. Conceptually, DA is an 
+extension of Shapley value decomposition from Cooperative Game Theory (see Gr{c o:}mping, 2007 for a 
+discussion) which seeks to find solutions of how to subdivide "payoffs" (i.e., the fit statistic) 
+to "players" (i.e., the IVs) based on their relative contribution; the payoff is usually 
+assumed to be a single value (i.e., scalar valued).
 
 {pstd}
-{res}General dominance{txt} statistics are the most commonly reported and easiest to interpret. General dominance statistics are derived as
-a weighted average marginal/incremental contribution to the overall fit statistic an independent variable makes across all models in which the 
-independent variable is included.  If independent variable {it:X} has a larger general dominance statistic than independent variable {it:Y},
-independent variable {it:X} "generally dominates" independent variable {it:Y}.  If general dominance statistics are equal for two independent 
-variables, no general dominance designation can be made between those independent variables.
+The DA implementation of Shapley value decomposition works by using a pre-selected 
+predictive model and applying a very extensive experimental design to it. Effectively, DA treats 
+the predictive model as data and the IVs as factors in an experiment with a within-subjects 
+full-factorial design (i.e., all possible combinations of the IVs are applied to the data). Another 
+way of describing the process is as a brute force method where sub-models reflecting all possible 
+combinations of the IVs being included or excluded is estimated from the data and the fit statistic 
+associated with each sub-model is collected. Assuming there are {it:p} IVs in the pre-selected model, 
+obtaining all possible combinations of the IVs results in 2^{it:p} sub-models to be estimated 
+(see Budescu, 1993).
 
 {pstd}
-General dominance statistics distill the entire ensemble of models into a single value for each independent variable, which is why they are 
-easiest to interpret. In addition, a useful property of the general dominance statistics is that they are an additive decomposition of the 
-fit statistic associated with the full model (i.e., the general dominance statistics can be summed to obtain the value of the full model's fit 
-statistic).  Thus, general dominance statistics are equivalent to Shapley values (see {stata findit shapley}).  General dominance statistics 
-are the arithmetic average of all conditional dominance statistics discussed next.
+There are three dominance designations obtained using the fit statistics from all the sub-models.
+
+{space 4}{title:1a] General Dominance}
 
 {pstd}
-{res}Conditional dominance{txt} statistics are also derived from the all possible combinations ensemble.  Conditional dominance 
-statistics are computed as the average incremental contributions to the overall model fit statistic within a single "order" for models 
-in which the independent variable is included - where "order" refers to a distinct number of independent variables in the estimation model.  One 
-order is thus all models that include 1 independent variable.  Another order is all models that include 2 independent variables, and so on to 
-{it:p} - or the order including only the model with all {it:p} independent variables.  Each independent variable will then have {it:p} different 
-conditional dominance statistics.
+General dominance is designated/determined using general dominance statistics.  General dominance 
+statistics divide up the overall fit statistic associated with the pre-selected model into contributions associated with each IV. General dominance is designated from these general dominance statistics by 
+comparing the magnitude of the statistic associated with each IV to the general dominance statistics 
+associated with each other IV.  If IV {it:X} has a larger general dominance statistic than 
+IV {it:Y}, then {it:X} generally dominates {it:Y}.  If general dominance statistics 
+are equal for two IVs, then no general dominance designation can be made between those IVs.
 
 {pstd}
-The evidence conditional dominance statistics provide with respect to relative importance is stronger than that provided by general dominance 
-statistics.  Because general dominance statistics are the arithmetic average of all {it:p} conditional dominance statistics, conditional 
-dominance statistics, considered as a set, provide more information about each independent variable or, alternatively, are less "averaged" than 
-general dominance statistics.  Conditional dominance statistics also provide information about independent variable redundancy, collinearity, 
-and suppression effects as the user can see how the inclusion of any independent variable is, on average, affected by the inclusion of other
-independent variables in the estimation model in terms of their effect on model fit. 
+General dominance statistics are the Shapley values decomposing the overall fit statistic from the 
+pre-selected model.  As such, the general dominance statistics are an additive decomposition of the 
+overall fit statistic and can be summed to obtain overall fit statistic's value.  General dominance, 
+of the three dominance desinations, is least stringent or the weakest designation.  This is because 
+it is possible to rank order IVs in almost any situation except when two IVs are exactly equal.
 
 {pstd}
-If independent variable {it:X} has larger conditional dominance statistics than independent variable {it:Y} 
-across all {it:p} orders, independent variable {it:X}  "conditionally dominates" independent variable {it:Y}.  To be more specific, for 
-{it:X} to conditionally dominate {it:Y}, the conditional dominance statistic associated with {it:X} at order 1 must be larger than 
-the conditional dominance statistic associated with {it:Y} at order 1.  The conditional dominance statistic associated with {it:X} 
-at order 2 must also be larger than the conditional dominance statistic associated with {it:Y} at order 2.  The conditional dominance 
-statistic associated with {it:X} at order 3 must also be larger than the conditional dominance statistic associated with {it:Y} at order 3 and so 
-on to order {it:p}.  Thus, the conditional dominance statistics at each order must all be larger for {it:X} than for {it:Y}.  If, at any order, 
-the conditional dominance statistics for two independent variables are equal or there is a change rank order (i.e., {it:X}'s conditional 
-dominance statistic is smaller than {it:Y}'s conditional dominance statistic), no conditional dominance designation can be made between 
-those independent variables.  Conditional dominance imples general dominance as well, but the reverse is not true.  {it:X} can 
-generally dominate {it:Y}, but not conditionally dominate {it:Y}.
+General dominance statistics are computed by averaging across {it:all} sub-models for each IV. 
+Specifically, general dominance statistics are an IV combination-weighted average of the 
+marginal/incremental contributions the IV makes to the overall fit statistic across all sub-models in 
+which it is included. How the it:IV combination weighting works and how that affects the 
+computations is discussed more below.  It is imporant to note that general dominance statistics are 
+the arithmetic average of all conditional dominance statistics discussed next.
+
+{space 4}{title:1b] Conditional Dominance}
 
 {pstd}
-{res}Complete dominance{txt} designations are the final designation derived from the all possible combinations ensemble.  Complete dominance 
-designations are made by comparing all possible incremental contributions to model fit for two independent variables. The evidence the complete 
-dominance designation provides with respect to relative importance is the strongest possible, and supercedes that of general and conditional 
-dominance.  Complete dominance is the strongest evidence as it is completely un-averaged and pits each independent variable against one another 
-in every possible comparison.  Thus, it is not possible for some good incremental contributions to compensate for some poorer incremental 
-contributions as can occur when such data are averaged.  Complete dominance then provides information on a property of the entire ensemble 
-of models, as it relates to a comparison between two independent variables.
+Conditional dominance is designated using conditional dominance statistics.  Conditional dominance 
+statistics are further decompositions of the pre-selected model's fit statistic that are ascribed to 
+each IV but based on that IV's contribiton when a specific number of IVs are included in a sub-model. 
+Each IV then has {it:p} conditional dominance statistics associated with it.  Conditional domiance is 
+designated by comparing the magnitide of an IV's conditional dominance statistics, at a specific number 
+of IVs included in the sub-model, to the magnitude of another IV's conditional dominance statistics at 
+that same number of IVs included in the sub-model.  If IV {it:X} has larger conditional dominance 
+statistics than IV {it:Y} across all {it:p} valid/within-number of IVs in a sub-model comparisons, 
+{it:X} conditionally dominates IV {it:Y}.  If, at any of the valid {it:p} comparisons, the conditional 
+dominance statistics for two IVs are equal or there is a change rank order (i.e., {it:X}'s conditional 
+dominance statistic is smaller than {it:Y}'s), no conditional dominance designation can be made 
+between those IVs. 
 
 {pstd}
-If independent variable {it:X} has a larger incremental contribution to model fit than independent variable {it:Y} across all possible 
-comparisons, independent variable {it:X}  "completely dominates" independent variable {it:Y}. As with conditional dominance designations, 
-for {it:X} to completely dominate {it:Y}, the incremental contribution to fit associated with {it:X} without any other independent variables 
-in the model must be larger than the incremental contribution to fit associated with {it:Y} without any other independent variables in the 
-model.  The incremental contribution to fit associated with {it:X} with independent variable {it:Z} also in the model must also be larger 
-than the incremental contribution to fit associated with {it:Y} with independent variable {it:Z} also in the model.  The incremental 
-contribution to fit associated with {it:X} with independent variable {it:W} also in the model must also be larger than the incremental 
-contribution to fit associated with {it:Y} with independent variable {it:W} also in the model and so on for all other 2^({it:p}-2) 
-comparisons (i.e., all possible combinations of the other independent variables in the model).  Thus, the incremental contribution 
-to fit associated with {it:X} for each of the possible 2^({it:p}-2)  comparisons must all be larger than the incremental contribution 
-to fit associated with {it:Y}.  If, for any comparison, the incremental contribution to fit for two independent variables are equal 
-or there is a change in rank order (i.e., {it:X}'s incremental contribution to fit is smaller than {it:Y}'s the incremental 
-contribution to fit with the same set of other independent variables in the model), no complete dominance designation can be made 
-between those independent variables.  Complete dominance imples both general and conditional dominance, but, again, the reverse is 
-not true.  {it:X} can generally and/or conditionally dominate {it:Y}, but not completely dominate {it:Y}.
+Conditional dominance statistics are an extension of the Shapley values that further decompose them to obtain 
+a stronger importance designation and provide more information about each IV.  Although the conditional 
+dominance statistics no longer sum to the pre-selected model's overall fit statistic, conditional dominance 
+statistics reveal the effect that IV redundancy, as well as IV interactions when modeled, have on prediction. 
 
 {pstd}
-By comparison to general and conditional dominance designations, the complete dominance designation has no natural statistic.  That said, 
-{cmd:domin} returns a complete dominance matrix which reads from the left to right.  Thus, a value of 1 means that the indepdendent variable 
-in the row completely dominates the independent variable in the column.  Conversely, a value of -1 means the opposite, that the independent 
-variable in the row is completely dominated by the independent variable in the column.  A 0 value means no complete dominance designation 
-could be made as the comparison independent variables' incremental contributions differ in relative magnitude from model to model.
+Conditional dominance statistics are more challenging to interpret than general dominance statistics as they are 
+evaluated as an IV's predtive trajectory across different numbers of IVs included in sub-models.  
+Conditional dominance is also a more stringent/stronger dominance designation than general dominance as it 
+is more difficult for one IV to conditionally dominate than it is for one IV to generally dominate another IV 
+as there are more ways in which conditional dominance can fail to be achieved.  Conditional dominance also implies 
+general dominance–but the reverse is not true. An IV can generally, but not conditionally, dominate 
+another IV.
+ 
+{pstd}
+Conditional dominance statistics are computed as the average incremental contribution to prediction an IV 
+makes within all possible combinations of the IVs in where the focal IV is included similar to general dominance 
+statistics.  What makes conditional dominance statistics different from general dominance is that there are {it:p}
+conditional dominance statistics reflecting the average contribution the IV makes when a set number of IVs 
+are allowed to be used in the sub-model.  Hence, the averages will reflect different numbers of individual 
+sub-models.  When there are more possible combinations of IVs for a specific number of IVs allowed in the sub-model, the average it produces are based on more sub-models.  Thus, when the arithmetic average of all the 
+conditional dominance statistics is used to obtain general dominance statistics, each sub-model in the 
+general dominance statistics is IV combination-weighted where specific sub-models that are included along with 
+greater numbers of other sub-models (i.e., more combinations at that number of IVs) are down-weighted relative to those that are included with fewer (i.e., fewer combinations at that number of IVs).  
+
+{space 4}{title:1c] Complete Dominance}
+
+{pstd}
+Complete dominance is designated differently from general and conditional dominance as there are 
+no statistics computed for this designation.  Rather, complete dominance is designated by comparing 
+{it:all} valid sub-models that can be compared between two IVs.  This results in 2^({it:p} - 2) valid 
+comparisons between the two IVs reflecting comparisons between sub-models including both focal IVs across 
+all possible combinations of the other {it:p} - 2 IVs. If IV {it:X} has a larger incremental contribution 
+to model fit than IV {it:Y} across all possible sub-models with the same different combination of the 
+other {it:p} - 2 IVs, then IV {it:X} completely dominates IV {it:Y}. If, for any specific sub-model 
+comparison, the incremental contribution to fit for two IVs are equal or there is a change in rank order (i.e., 
+{it:X}'s incremental contribution to fit is smaller than {it:Y}'s), no complete dominance designation can be 
+made between those IVs. 
+
+{pstd}
+Complete dominance designations are also extensions of Shapley values that use specific sub-model comparisons 
+to obtain the strongest dominance designation possible.  Complete dominance is strongest as there are a great 
+number of ways in which it can fail to be achieved.  Every valid comparison must be greater for one IV 
+than another for complete dominance to be designated.  Complete dominance also imples both general and 
+conditional dominance, but, again, the reverse is not true.  An IV can generally and/or conditionally 
+dominate another, but not completely dominate it.
 
 {marker disp}{...}
 {title:2. Display}
 
 {pstd}
-{cmd:domin}, by default, will produce all three types (i.e., general, conditional, and complete) of dominance statistics.  The general dominance 
-statistics cannot be suppressed in the output, is the first set of statistics to be displayed, mirror the output style of most single equation 
-commands (e.g., {cmd:regress}), and produces two additional results.  Along with the general dominance statistics, the general dominance statistics 
-display a vector of standardized general dominance statistics; which is general dominance statistic vector normed or standardized to be out of 100%.  
-The final column is a ranking or the relative importance of the independent variables based on the general dominance statistics.  
+{cmd:domin}, by default, will produce all three types (i.e., general, conditional, and complete) of 
+dominance statistics and designations.  The general dominance statistics are considered the primary 
+statistics produced by {cmd:domin}, are thus reflected as the {res}e(b){txt} vector, cannot be 
+suppressed in the output, and are the first set of statistics to be displayed.  Two additional results 
+are produced along with the general dominance statistics: a vector of standardized general dominance 
+statistics and a set of ranks.  The standardized vector is general dominance statistic vector normed 
+or standardized to be out of 100%.  The ranking vector reflects the general dominance designations 
+reported as a set of rank values.
 
 {pstd}
-The conditional dominance statistics are second, can be suppressed by the {opt noconditional} option, and are displayed in matrix format.  The first 
-column displays the average marginal contribution to the overall model fit statistic with 1 independent variable in the model, the second column 
-displays the average marginal contribution to the overall model fit statistic with 2 independent variables in the model, and so on until 
-column {it:p} which displays the average marginal contribution to the overall model fit statistic with all {it:p} independent variables in the 
-model.  Each row corresponds to an independent variable.
+The conditional dominance statistics are reported second, can be suppressed by the {opt noconditional} 
+option, and are displayed in matrix format.  The first column displays the average marginal contribution 
+to the overall model fit statistic with 1 IV in the model, the second column displays the average 
+marginal contribution to the overall model fit statistic with 2 IVs in the model, and so on until 
+column {it:p} which displays the average marginal contribution to the overall model fit statistic with 
+all {it:p} IVs in the model.  Each row corresponds to the conditional dominance statistics for a different 
+IV.
 
 {pstd}
-Complete dominance is third, can be suppressed by the {opt nocomplete} option, and are also displayed in matrix format.  The rows of the 
-complete dominance matrix correspond to dominance of the independent variable in that row over the independent variable in each column.  If a 
-row entry has a 1, the independent variable associated with the row completely dominates the independent variable associated with the column.  By 
-contrast, if a row entry has a -1, the independent variable associated with the row is completely dominated by the independent variable 
-associated with the column.  A 0 indicates no complete dominance relationship between the independent variable associated with the row and 
-the independent variable associated with the column.
+Complete dominance are reported third, can be suppressed by the {opt nocomplete} option, and are also 
+displayed in matrix format.  The rows of the complete dominance matrix correspond to dominance of the 
+IV in that row over the IV in each column.  If a row entry has a 1, the IV associated with 
+the row completely dominates the IV associated with the column.  By contrast, if a row entry has a -1, the 
+IV associated with the row is completely dominated by the IVassociated with the column.  A 0 indicates no 
+complete dominance relationship between the IV associated with the row and the IV associated with the column.
 
 {pstd}
-Finally, if all three dominance statistics are reported, a "strongest dominance designations" list is reported.  The strongest dominance designations 
-list reports the strongest dominance designation between all pairwise, independent variable comparisons.
+Finally, if all three dominance statistics/designations are reported, a strongest dominance designations 
+list is reported.  The strongest dominance designations list reports the strongest dominance designation 
+between all IV pairs.
 
 {marker opts}{...}
 {title:3. Options}
@@ -198,25 +233,32 @@ the computation of conditional dominance statistics also suppresses the "stronge
 designations can save computation time when complete dominance designations are not desired.  Suppressing the computation of complete dominance 
 designations also suppresses the "strongest dominance designations" list.
 
-{phang}{opt epsilon} is a faster version of dominance analysis (i.e., relative weights or "epsilon"; Johnson, 2000).  {opt epsilon} obviates the 
-each subset regression by orthogonalizing independent variables using singular value decomposition (see {help matrix svd}).  {opt epsilon}'s 
-singular value decomposition approach is not equivalent to the all possible combinations ensemble approach but is many fold faster for 
-models with many independent variables and tends to produce similar answers regarding relative importance (LeBreton, Ployhart, & Ladd, 2004).  
-{opt epsilon} also does not allow the use of {opt all()}, {opt sets()}, {opt mi}, {opt consmodel}, {opt reverse}, and does not allow the 
-use of {help weights}.  Using {opt epsilon} also only produces general dominance statistics (i.e., requires {opt noconditional} and 
-{opt nocomplete}).  
+{phang}{opt epsilon} is a faster version of dominance analysis (i.e., relative weights or "epsilon"; 
+Johnson, 2000).  {opt epsilon} avoids computing all regression subsets by orthogonalizing independent 
+variables using singular value decomposition (see {help matrix svd}).  {opt epsilon}'s singular value 
+decomposition approach is not equivalent to the all possible combinations ensemble approach but is many 
+fold faster for models with many independent variables and tends to produce similar answers regarding 
+relative importance (LeBreton, Ployhart, & Ladd, 2004).  {opt epsilon} also does not allow the use of 
+{opt all()}, {opt sets()}, {opt mi}, {opt consmodel}, {opt reverse}, and does not allow the use of 
+{help weights}.  Using {opt epsilon} only produces general dominance statistics (i.e., 
+requires {opt noconditional} and {opt nocomplete}).  
 
-{pmore}Option {opt epsilon} can obtain general dominance statistics for {cmd:regress}, {cmd:glm} (for any {opt link()} and {opt family()}; 
-see Tonidandel & LeBreton, 2010), as well as {cmd:mvdom} (the user written wrapper program for multivariate regression; see LeBreton & 
-Tonidandel, 2008; see also Example #6 below).  By default, {opt epsilon} assumes {opt reg(regress)} and {opt fitstat(e(r2))}.  Note that 
-{opt epsilon} ignores entries in {opt fitstat()} as it produces its own fit statistic.
+{pmore}Option {opt epsilon} can obtain general dominance statistics for {cmd:regress}, {cmd:glm} (for any 
+{opt link()} and {opt family()}; see Tonidandel & LeBreton, 2010), as well as {cmd:mvdom} (the 
+user-written wrapper program for multivariate regression; see LeBreton & Tonidandel, 2008; see also 
+Example #6 below).  By default, {opt epsilon} assumes {opt reg(regress)} and {opt fitstat(e(r2))}.  
+Note that {opt epsilon} ignores entries in {opt fitstat()} as it produces its own fit statistic.
 
-{pmore}{cmd:Note:} The {opt epsilon} approach has been recently criticized for being conceptually flawed and biased (see Thomas, Zumbo, Kwan, 
-& Schweitzer, 2014), despite research showing similarity between dominance and {opt epsilon}-based methods (e.g., LeBreton et al., 2004).  
-Thus, the user is cautioned in the use of {opt epsilon} as its speed may come at the cost of bias.
+{pmore}{cmd:Note:} The {opt epsilon} approach has been criticized for being conceptually flawed and biased 
+(see Thomas, Zumbo, Kwan, & Schweitzer, 2014).  Despite this criticism research also shows similarity 
+between dominance and {opt epsilon}-based methods in terms of the results they produce (i.e., LeBreton 
+et al., 2004).  {opt epsilon} is offered in {cmd:domin} as it produces useful approximations to general dominance 
+statistics/Shapley values. Ultimately, the user is cautioned in the use of {opt epsilon} as its speed may come 
+at the cost of bias.
 
-{phang}{opt mi} invokes Stata's {help mi} options within {cmd:domin}.  Thus, each analysis is run using the {cmd:mi estimate} prefix and all 
-the {opt fitstat()} statistics returned by the analysis program are averaged across all imputations (see Example #10 below).  
+{phang}{opt mi} invokes Stata's {help mi} options within {cmd:domin}.  Thus, each analysis is run using 
+the {cmd:mi estimate} prefix and all the {opt fitstat()} statistics returned by the analysis program 
+are averaged across all imputations (see Example #10 below).  
 
 {phang}{opt miopt()} includes options in {cmd:mi estimate} within {cmd:domin}.  Each analysis is passed the options in {opt miopt()} and each of
 the entries in {opt miopt()} must be a valid option for {cmd:mi estimate}.  Invoking {opt miopt()} without {opt mi} turns {opt mi} on and produces
@@ -231,54 +273,88 @@ baseline value.
 {phang}{opt reverse} reverses the interpretation of all dominance statistics in the {cmd:e(ranking)} vector, {cmd:e(cptdom)} matrix, fixes the 
 computation of the {cmd:e(std)} vector, and the "strongest dominance designations" list.  {cmd:domin} assumes by default that higher values on 
 overall fit statistics constitute better fit, as dominance analysis has historically been based on the explained-variance R2 metric.  
-However, dominance analysis can be applied to any model fit statistic (see Azen, Budescu, & Reiser, 2001 for other examples).  
+However, dominance analysis can be applied to any model fit statistic.
 {opt reverse} is then useful for the interpetation of dominance statistics based on overall model fit statistics that decrease with 
 better fit (e.g., AIC, BIC).
 
 {marker remark}{...}
 {title:4. Final Remarks}
+{space 4}{title:4a] Conceptual Considerations}
 
-{pstd}It is the responsibility of the user to supply {cmd:domin} with an overall fit statistic that can be validly dominance analyzed.  
-Traditionally, only R2 and pseudo-R2 statistics have been used for dominance analysis due to their interpretability - but {cmd:domin} was 
-developed with extensibility in mind and any statistic {it:could} potentially be used (see Azen, Budescu, & Reiser, 2001 for other examples).
-Arguably, the most important criteria for an overall fit statistic to be used to compute dominance statistics are a] {it:monononicity} or that 
-the fit statistic will not decrease with inclusion of more independent variables (without a degree of freedom adjustment such as those in 
-information criteria), b] {it:linear invariance} or that the fit statistic is invariant/unchanged for non-singular transformations 
-of the independent variables, and c] {it:information content} or interpretation of the fit statistic as providing information about overall 
-model fit.
+{pstd}Dominance analysis is not a variable/model selection method and assumes that variable/model selection has 
+preceded the use of dominance analysis.  This is a key consideration for its use as many methods called 
+"relative importance" methods are probably best used as applied to variable/model selection/to identify and 
+remove variables that have trivial effects on the dependent variable(s).  Dominance analysis on the other 
+hand is more focused on relative importance as a model evaluation criterion.  That is, to evaluate 
+the effects of indepdendent variables in the context of a selected model.  
 
-{pstd}Although non-R2 overall fit statistics can be used, {cmd:domin} assumes that the fit statistic supplied {it:acts} like an R2 statistic.  
-Thus, {cmd:domin} assumes that better model fit is associated with increases to the fit statistic and all marginal contributions can be 
-obtained by subtraction.  For model fit statistics that decrease with better fit (i.e., AIC, BIC, deviance), the interpretation of the 
-dominance relationships need to be reversed (see Examples #7 and #9).  
+{pstd}Given the model evaluation-oriented focus of dominance analysis, the fit statistic used should also 
+focus on model evaluation.  R2 and pseudo-R2 statistics are particularly good choices for this purpose and, 
+hisorically, have been the {it:only} statistics used for dominance analysis in published methodological research.  
+Given that dominance analysis is an extension of Shapley value decomposition, which is a general methodology for 
+dividing up contributions between "players" (i.e., indpendent variables) to a "payoff" (i.e., a fit statistic), 
+R2's are not necessarily the only valid fit statistic that could be used.  Consistent with this perspective, 
+{cmd:domin} was developed to be extensible and accommodate other, non-R2 fit statistics
 
-{pstd}It is the responsibility of the user to provide {cmd:domin} with predictor combinations that can be validly dominance analyzed.  
-That is, including products of variables and individual dummy codes from a dummy code set can produce invalid dominance analysis results or can 
-at least, produce dominance statistics with a complicated interpretation.  If an independent variable should not be analyzed {it:by itself} in 
-a regression model, than it should not be included in the {it:varlist} and the user should consider using a {opt sets()} specification.  
+{pstd}When choosing a fit metric for dominance analysis that is {it:not} an R2, it is a good idea to 
+consider the following three criteria.  Fit metrics that meet these criteria are likely to be appropriate for 
+the evaluation-focused nature of {cmd:domin}.  Specifically, is the fit metric? a] {it:monononic} or does 
+the fit increase/not decrease with inclusion of more independent variables (without a degree of freedom 
+adjustment such as those in information criteria), b] {it:linearly invariant} or does the fit statistic 
+remain the same for non-singular, linear transformations of the independent variables, and does the metric 
+provide c] {it:information content} or does the interpretation of the statistic provide information about 
+overall model fit to the data. R2 metrics adhere to all three criteria.  Information criteria, on a 
+pre-selected model, are not linearly invariant to transformations of the dependent variable(s) but 
+meet other criteria and can be useful for dominance analysis as well (see Examples #7 and #9).  
 
-{pstd}Some users may be interested in obtaining relative importance comparisons for interactions, non-linear variables, as well as for indicator 
-variables or dummy codes (i.e., any variable that can be constructed by a {help factor variable}).  Whereas dummy codes should be included together 
-in a {opt sets()} set, users can follow the residualization method laid out by LeBreton, Tonidandel, and Krasikova (2013; see Example #4) to 
-obtain relative importance of interaction and non-linear variables.
+{space 4}{title:4b] Considerations for Use of Dominance Analysis}
 
-{pstd}{cmd:domin} can also produce standard errors using {help bootstrap}ping (see Example #5).  Although standard errors {it:can} be produced, 
-the sampling distribution for dominance weights have not been extensively studied.  {help permute} tests are also conceptually applicable to 
-dominance weights as well.
+{pstd}When using dominance analysis wihth cateorical or non-addtive independent variables 
+(e.g., interaction terms) the user must be deliberate in how they are incorporated.  In general, all indicator 
+codes from a {help factor variable} should be included and excluded together as a set unless the user has 
+a compelling reason not to do so (i.e., it is important for the research question to understand importance 
+differences between categories of a categorical independent variable).  Similarly, dominance analysis with
+non-additive factor variables such as interactions or non-linear variables (e.g., {it:c.iv##c.iv}) could 
+be included, as a set, with lower order terms or users can follow the residualization method laid out by 
+LeBreton, Tonidandel, and Krasikova (2013; see Example #4) unless there is a compelling reason not to do so.
 
-{pstd}{cmd:domin} comes with 2 wrapper programs {cmd:mvdom} and {cmd:mixdom}.  {cmd:mvdom} implements multivariate regression-based dominance 
-analysis described by Azen and Budescu (2006; see {help mvdom}).  {cmd:mixdom} implements linear mixed effects regression-based dominance analysis 
-described by Luo and Azen (2013; see {help mixdom}).  Both programs are intended to be used as wrappers into {cmd:domin} and serve to illustrate 
-how the user can also adapt existing regressions (by Stata Corp or user-written) to evaluate in a relative importance analysis when they do not 
-follow the traditional {it:depvar indepvars} format.  As long as the wrapper program can be expressed in some way that can be evaluated in 
-{it:depvar indepvars} format, any analysis could be dominance analyzed. 
+{pstd}Models that are intrinsically non-additive such as {stata findit rforest:rforest} (see Example #11) or 
+{stata findit boost:boost} can also be used with Shapley value decomposition methods such as dominance 
+analysis (see {browse "https://pypi.org/project/sage-importance/":Python package SAGE} and 
+{browse "https://CRAN.R-project.org/package=vimp":R package vimp} for examples).  Such methods 
+focus on estimating general dominance statistics and are approximations like the {opt epsilon} method.  As 
+such, dominance analysis is not an identical, but similar method to each of these implementations that 
+can be applied to smaller-scale machine learning models; it is recommended that the user not exceed 
+around 25 independent variables simultaneously.  This recommendation also applies to any linear models as well.
 
-{pstd}Any program used by as a wrapper by {cmd:domin} must accept at least one optional argument and must accept an {help if} statement in its 
-{help syntax} line.
+{pstd}{help bootstrap}ping can also be applied to {cmd:domin} to produce standard errors for 
+any dominance statistics (see Example #5).  Although standard errors {it:can} be produced, the 
+sampling distribution for dominance weights have not been extensively studied and the information 
+provided by the standard errors is usually redundant with that offered by conditional and complete dominance 
+results.  Obtaining standard errors is thus most useful for the {opt episilon} method.  {help permute} tests 
+can also be obtained to evaluate statistical differences between dominance statistics.
 
-{pstd}{cmd:domin} does not directly accept the {help svy} prefix - but does accept {cmd:pweight}s.  Because {cmd:domin} does not produce standard 
-errors by defualt, to respect the sampling design for complex survey data the user need only provide {cmd:domin} the {cmd:pweight} variable for 
-commands that accept {cmd:pweight}s (see Luchman, 2015).
+{pstd}Although {cmd:domin} does not accept the {help svy} prefix it does accept {cmd:pweight}s for commands 
+in {opt reg()} that also accept them.  To adjust the dominance results for a sampling design in complex 
+survey data the user need only provide {cmd:domin} the {cmd:pweight} variable for commands that accept 
+{cmd:pweight}s (see Luchman, 2015).  
+
+{space 4}{title:4c] Extending Models that can be Dominance Analyzed}
+
+{pstd}{cmd:domin} comes with 2 wrapper programs {cmd:mvdom} and {cmd:mixdom}.  
+
+{pstd}{cmd:mvdom} implements multivariate regression-based dominance analysis described by Azen and Budescu (2006; see {help mvdom}).  
+
+{pstd}{cmd:mixdom} implements linear mixed effects regression-based dominance analysis described by Luo and Azen (2013; see {help mixdom}).  
+
+{pstd}Both programs are intended to be used as wrappers into {cmd:domin} and serve to illustrate how the user can 
+also adapt existing regressions (by Stata Corp or user-written) to evaluate in a relative importance analysis 
+when they do not follow the traditional {it:depvar indepvars} format.  As long as the wrapper program can 
+be expressed in some way that can be evaluated in {it:depvar indepvars} format, any analysis could be 
+dominance analyzed. 
+
+{pstd}Any program used as a wrapper by {cmd:domin} must accept at least one optional argument and must accept 
+a {help if} statement in its {help syntax}.
 
 {marker examp}{...}
 {title:5. Examples}
@@ -294,7 +370,7 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {phang}Example 3: Binary outcome dominance analysis with factor varaible (e.g., Azen & Traxel, 2009) {p_end}
 {phang} {stata domin foreign trunk weight, reg(logit) fitstat(e(r2_p)) sets((i.rep78))} {p_end}
 
-{phang}Example 4: Comparison of interaction and non-linear variables {p_end}
+{phang}Example 4a: Comparison of interaction and non-linear variables using residualization {p_end}
 {phang} {stata generate mpg2 = mpg^2} {p_end}
 {phang} {stata generate headr2 = headroom^2} {p_end}
 {phang} {stata generate mpg_headr = mpg*headroom} {p_end}
@@ -306,8 +382,11 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {phang} {stata predict mpg_headrr, resid} {p_end}
 {phang} {stata domin price mpg headroom mpg2r headr2r mpg_headrr} {p_end}
 
+{phang}Example 4b: Comparison of interaction and non-linear variables using sets {p_end}
+{phang} {stata "domin price, sets((mpg c.mpg#c.mpg c.mpg#c.headroom) (headroom c.headroom#c.headroom c.mpg#c.headroom))"} {p_end}
+
 {phang}Example 5: Epsilon-based linear regression approach to dominance with bootstrapped standard errors{p_end}
-{phang} {stata bootstrap, reps(500): domin price mpg headroom trunk turn gear_ratio foreign length weight, epsilon} {p_end}
+{phang} {stata "bootstrap, reps(500): domin price mpg headroom trunk turn gear_ratio foreign length weight, epsilon""} {p_end}
 {phang} {stata estat bootstrap}{p_end}
 
 {phang}Example 6: Multivariate regression with wrapper {help mvdom}; using default Rxy metric (e.g., Azen & Budescu, 2006; LeBreton & Tonidandel, 2008){p_end}
@@ -326,7 +405,7 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {phang} {stata webuse nlswork, clear}{p_end}
 {phang} {stata domin ln_wage tenure hours age collgrad, reg(mixdom, id(id)) fitstat(e(r2_w)) sets((i.race))} {p_end}
 
-{phang}Example 9: Multinomial logistic regression with simple program to return BIC {p_end}
+{phang}Example 9a: Multinomial logistic regression with simple program to return BIC {p_end}
 {phang} {stata program define myprog, eclass}{p_end}
 {phang} {stata syntax varlist if , [option]}{p_end}
 {phang} {stata tempname estlist}{p_end}
@@ -335,9 +414,13 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {phang} {stata matrix `estlist' = r(S)}{p_end}
 {phang} {stata ereturn scalar bic = `estlist'[1,6]}{p_end}
 {phang} {stata end}{p_end}
-{phang} {stata domin race tenure hours age nev_mar, reg(myprog) fitstat(e(bic)) consmodel reverse} {p_end}
-{phang} Comparison dominance analysis with McFadden's pseudo-R2 {p_end}
-{phang} {stata domin race tenure hours age nev_mar, reg(mlogit) fitstat(e(r2_p))} {p_end}
+{phang} {stata domin race tenure hours age never_married, reg(myprog) fitstat(e(bic)) consmodel reverse} {p_end}
+
+{phang}Example 9b: Multinomial logistic regression with {cmd:fitdom} {p_end}
+{phang} {stata "domin race tenure hours age never_married, reg(fitdom, fitstat(r(S)[1,6]) reg(mlogit) postestimation(estat ic)) consmodel reverse fitstat(e(fitstat))"} {p_end}
+
+{phang}Example 9c: Comparison dominance analysis with McFadden's pseudo-R2 {p_end}
+{phang} {stata domin race tenure hours age never_married, reg(mlogit) fitstat(e(r2_p))} {p_end}
 
 {phang}Example 10: Multiply imputed dominance analysis {p_end}
 {phang} {stata webuse mheart1s20, clear} {p_end}
@@ -345,6 +428,18 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {phang} Comparison dominance analysis without {cmd:mi} ("in 1/154" keeps only original observations for comparison as in 
 {bf:{help mi_intro_substantive:[MI] intro substantive}}) {p_end}
 {phang} {stata domin attack smokes age bmi hsgrad female in 1/154, reg(logit) fitstat(e(r2_p))} {p_end}
+
+{phang}Example 11: Random forest with custom in-sample R2 postestimation command (requires {stata ssc install randomforest:randomforest} and Stata V15 or better){p_end}
+{phang} {stata program define myRFr2, eclass} {p_end}
+{phang} {stata tempvar rfpred} {p_end}
+{phang} {stata predict `rfpred' } {p_end}
+{phang} {stata correlate `rfpred' `e(depvar)'} {p_end}
+{phang} {stata ereturn scalar r2 = `=r(rho)^2'} {p_end}
+{phang} {stata end} {p_end}
+{phang} {stata rforest price mpg headroom weight, type(reg)} {p_end}
+{phang} {stata matrix list e(importance)} {p_end}
+{phang} {stata domin price mpg headroom weight, reg(fitdom, reg(rforest, type(reg)) postestimation(myRFr2) fitstat(e(r2))) fitstat(e(fitstat))} {p_end}
+
 
 {marker sav}{...}
 {title:6. Saved Results}
@@ -383,7 +478,6 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {marker refs}{...}
 {title:7. References}
 
-{p 4 8 2}Azen, R., Budescu, D. V., & Reiser, B. (2001). Criticality of predictors in multiple regression. {it:British Journal of Mathematical and Statistical Psychology, 54(2)}, 201-225.{p_end}
 {p 4 8 2}Azen, R. & Budescu D. V. (2003). The dominance analysis approach for comparing predictors in multiple regression. {it:Psychological Methods, 8}, 129-148.{p_end}
 {p 4 8 2}Azen, R., & Budescu, D. V. (2006). Comparing predictors in multivariate regression models: An extension of dominance analysis. {it:Journal of Educational and Behavioral Statistics, 31(2)}, 157-180.{p_end}
 {p 4 8 2}Azen, R. & Traxel, N. M. (2009). Using dominance analysis to determine predictor importance in logistic regression. {it:Journal of Educational and Behavioral Statistics, 34}, pp 319-347.{p_end}
@@ -397,7 +491,13 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {p 4 8 2}Luchman, J. N. (2014). Relative importance analysis with multicategory dependent variables: An extension and review of best practices. {it:Organizational Research Methods, 17(4)}, 452-471.{p_end}
 {p 4 8 2}Luo, W., & Azen, R. (2013). Determining predictor importance in hierarchical linear models using dominance analysis. {it:Journal of Educational and Behavioral Statistics, 38(1)}, 3-31.{p_end}
 {p 4 8 2}Tonidandel, S., & LeBreton, J. M. (2010). Determining the relative importance of predictors in logistic regression: An extension of relative weight analysis. {it:Organizational Research Methods, 13(4)}, 767-781.{p_end}
-{p 4 8 2}Thomas, D. R., Zumbo, B. D., Kwan, E., & Schweitzer, L. (2014). On Johnson's (2000) relative weights method for assessing variable importance: A reanalysis. {it:Multivariate Behavioral Research, 49(4)}, 329-338.{p_end}
+{p 4 8 2}Thomas, D. R., Zumbo, B. D., Kwan, E., & Schweitzer, L. (2014). On Johnson's (2000) relative weights method for assessing variable importance: A reanalysis. {it:Multivariate Behavioral Research, 49(4)}, 329-338.{p_end} 
+
+{title:Article}
+
+Please cite as:
+
+{p 4 8 2}Luchman, J. N. (2021). Determining relative importance in Stata using dominance analysis: domin and domme. {it:The Stata Journal, 21(2)}, 510–538. https://doi.org/10.1177/1536867X211025837{p_end}
 
 {title:Author}
 
@@ -407,8 +507,14 @@ commands that accept {cmd:pweight}s (see Luchman, 2015).
 {p 4}Arlington, VA{p_end}
 {p 4}jluchman@forsmarshgroup.com{p_end}
 
+{title:See Also}
+
+{pstd}{stata findit shapley:shapley}, {browse "http://www.marco-sunder.de/stata/rego.html":rego}, 
+{browse "https://ideas.repec.org/c/boc/bocode/s457543.html":shapley2}, 
+{browse "https://CRAN.R-project.org/package=domir":R package domir}, 
+{browse "https://CRAN.R-project.org/package=relaimpo":R package relaimpo}
 
 {title:Acknowledgements}
 
-Thanks to Nick Cox, Ariel Linden, Amanda Yu, Torsten Neilands, Arlion N, Eric Melse, De Liu, Patricia "Economics student", 
-and Annesa Flentje for suggestions and bug reporting.
+{pstd}Thanks to Nick Cox, Ariel Linden, Amanda Yu, Torsten Neilands, Arlion N, Eric Melse, De Liu, 
+Patricia "Economics student", and Annesa Flentje for suggestions and bug reporting.

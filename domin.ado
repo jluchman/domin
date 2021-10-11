@@ -1066,4 +1066,6 @@ end
  ---
  domin version 3.3.0 - Sept 28, 2021 
  -bug fix and update to complete dominance computations - inconsistent computation of complete dominance designation
+ -update to documentation/helpfile
+ -clean up internal functions (naming and redundancy)
  */
