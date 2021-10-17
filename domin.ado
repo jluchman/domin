@@ -1,4 +1,4 @@
-*! domin version 3.3.0  9/28/2021 Joseph N. Luchman
+*! domin version 3.3.0  10/17/2021 Joseph N. Luchman
 
 program define domin, eclass //history and version information at end of file
 
@@ -692,9 +692,9 @@ void dominance(string scalar iv_string, string scalar cdlcompu, string scalar cp
 	
 	number_of_regressions = 2^number_of_IVs - 1 //compute total number of regressions
 	
-	printf("\n{txt}Total of {res}%f {txt}regressions\n", number_of_regressions)
+	printf("\n{txt}Total of {res}%f {txt}sub-models\n", number_of_regressions)
 	
-	if (number_of_IVs > 12) printf("\n{txt}Computing all predictor combinations\n")
+	if (number_of_IVs > 12) printf("\n{txt}Computing all independent variable combination sub-models\n")
 
 	IV_indicator_matrix = J(number_of_IVs, 2^number_of_IVs, .)	//indicating the IV by it's sequence in the rows (each row is an IV) and presence in a model by the columns (each column is a model); all models and the IVs in those models will be represented in this matrix; the matrix starts off empty/as all missings
 	
@@ -726,7 +726,7 @@ void dominance(string scalar iv_string, string scalar cdlcompu, string scalar cp
 	
 	if (number_of_IVs > 4) {
 	
-		printf("\n{txt}Progress in running all regression subsets\n{res}0%%{txt}{hline 6}{res}50%%{txt}{hline 6}{res}100%%\n")
+		printf("\n{txt}Progress in running all sub-models\n{res}0%%{txt}{hline 6}{res}50%%{txt}{hline 6}{res}100%%\n")
 		
 		printf(".")
 		
@@ -1064,8 +1064,9 @@ end
  -update to documentation for SJ article
  -fixed bug in -if- statements with -mi- (thanks to Annesa Flentje)
  ---
- domin version 3.3.0 - Sept 28, 2021 
+ domin version 3.3.0 - October 17, 2021 
  -bug fix and update to complete dominance computations - inconsistent computation of complete dominance designation
  -update to documentation/helpfile
  -clean up internal functions (naming and redundancy)
+ -update to terminology in documnetation and reporting
  */
