@@ -459,7 +459,7 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 {phang}Example 11: Random forest with custom in-sample R2 postestimation command (requires {stata ssc install randomforest:randomforest} and Stata V15 or better){p_end}
 {phang} {stata program define myRFr2, eclass} {p_end}
 {phang} {stata tempvar rfpred} {p_end}
-{phang} {stata predict `rfpred' } {p_end}
+{phang} {stata predict `rfpred'} {p_end}
 {phang} {stata correlate `rfpred' `e(depvar)'} {p_end}
 {phang} {stata ereturn scalar r2 = `=r(rho)^2'} {p_end}
 {phang} {stata end} {p_end}
@@ -472,67 +472,72 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 {title:6. Final Remarks}
 {space 4}{title:6a] Conceptual Considerations}
 
-{pstd}Dominance analysis is not a variable/model selection method and assumes that variable/model selection has 
-preceded the use of dominance analysis.  This is a key consideration for its use as many methods called 
-"relative importance" methods are probably best used as applied to variable/model selection/to identify and 
-remove variables that have trivial effects on the dependent variable(s).  Dominance analysis on the other 
-hand is more focused on relative importance as a model evaluation criterion.  That is, to evaluate 
-the effects of indepdendent variables in the context of a selected model.  
+{pstd}
+DA is most appropriate for model evaluation and is not well suited for model selection purposes.  
+That is, DA is best used to evaluate the effects of IVs in the context of a pre-selected model.  This 
+is because DA evaluates not only the full pre-selected model (the focus of many importance methods) 
+but also all combinations of sub-models.  By examining all sub-models, DA assumes that all IVs should 
+be "players" who are given the chance to contribute to the "payoff"/predict the DV.  IVs that are 
+trivial (i.e., have no predictive usefulness) may still be assigned non-0 shares of the fit statistic 
+with DA.  Other methods better suited to identifying such trivial IVs should be used to filter IVs prior 
+to DA.
 
-{pstd}Given the model evaluation-oriented focus of dominance analysis, the fit statistic used should also 
-focus on model evaluation.  R2 and pseudo-R2 statistics are particularly good choices for this purpose and, 
-hisorically, have been the {it:only} statistics used for dominance analysis in published methodological research.  
-Given that dominance analysis is an extension of Shapley value decomposition, which is a general methodology for 
-dividing up contributions between "players" (i.e., indpendent variables) to a "payoff" (i.e., a fit statistic), 
-R2's are not necessarily the only valid fit statistic that could be used.  Consistent with this perspective, 
-{cmd:domin} was developed to be extensible and accommodate other, non-R2 fit statistics
+{pstd}
+R2 and pseudo-R2 statistics are good choices as a fit statistic for DA and, hisorically, have been the 
+{it:only} statistics used for DA in published methodological research.  Given that DA is an extension 
+of Shapley value decomposition, a general methodology for dividing up contributions between "players" 
+to a "payoff," R2 statistics are not the only fit statistic that could be used.  
 
-{pstd}When choosing a fit metric for dominance analysis that is {it:not} an R2, it is a good idea to 
-consider the following three criteria.  Fit metrics that meet these criteria are likely to be appropriate for 
-the evaluation-focused nature of {cmd:domin}.  Specifically, is the fit metric? a] {it:monononic} or does 
-the fit increase/not decrease with inclusion of more independent variables (without a degree of freedom 
-adjustment such as those in information criteria), b] {it:linearly invariant} or does the fit statistic 
-remain the same for non-singular, linear transformations of the independent variables, and does the metric 
-provide c] {it:information content} or does the interpretation of the statistic provide information about 
-overall model fit to the data. R2 metrics adhere to all three criteria.  Information criteria, on a 
-pre-selected model, are not linearly invariant to transformations of the dependent variable(s) but 
-meet other criteria and can be useful for dominance analysis as well (see Examples #7 and #9).  
+{pstd}
+If the predictive model used does not have an R2-like statistics that can be used to evaluate its 
+performance, there are three criteria to that methodologists consider useful for Shapley value 
+decomposition: a] {it:monononicity} or that the statistic increases/does not decrease with inclusion 
+of more IVs (without a degree of freedom adjustment such as those in information criteria), b] 
+{it:linear invariance} or that the fit statistic remains the same for non-singular, linear 
+transformations of the IVs, and the statistic's c] {it:information content} or that the interpretation 
+of the statistic provides information about overall model fit to the data. Fit metrics that do not meet 
+all three are not necessarily invalid, but may require extra caution in interpretation and may produce 
+unexpected results (i.e., negative contributions to Shapley values).
 
 {space 4}{title:6b] Considerations for Use of Dominance Analysis}
 
-{pstd}When using dominance analysis wihth cateorical or non-addtive independent variables 
-(e.g., interaction terms) the user must be deliberate in how they are incorporated.  In general, all indicator 
-codes from a {help factor variable} should be included and excluded together as a set unless the user has 
-a compelling reason not to do so (i.e., it is important for the research question to understand importance 
-differences between categories of a categorical independent variable).  Similarly, dominance analysis with
-non-additive factor variables such as interactions or non-linear variables (e.g., {it:c.iv##c.iv}) could 
-be included, as a set, with lower order terms or users can follow the residualization method laid out by 
-LeBreton, Tonidandel, and Krasikova (2013; see Example #4) unless there is a compelling reason not to do so.
+{pstd}
+When using DA with cateorical or non-addtive IVs (e.g., interaction terms) the user must 
+be deliberate in how they are incorporated.  In general, all indicator codes from a {help factor variable} 
+should be included and excluded together as a set unless the user has a compelling reason not to do so 
+(i.e., it is important for the research question to understand importance differences between categories 
+of a categorical independent variable).  Similarly, DA withnon-additive factor variables such as 
+interactions or non-linear variables (e.g., {it:c.iv##c.iv}) could be included, as a set, with lower order 
+terms or users can follow the residualization method laid out by LeBreton, Tonidandel, and Krasikova (2013; 
+see Example #4) unless there is a compelling reason not to do so.
 
-{pstd}Models that are intrinsically non-additive such as {stata findit rforest:rforest} (see Example #11) or 
-{stata findit boost:boost} can also be used with Shapley value decomposition methods such as dominance 
-analysis (see {browse "https://pypi.org/project/sage-importance/":Python package SAGE} and 
-{browse "https://CRAN.R-project.org/package=vimp":R package vimp} for examples).  Such methods 
+{pstd}
+Models that are intrinsically non-additive such as {stata findit rforest:rforest} (see Example #11) or 
+{stata findit boost:boost} can also be used with Shapley value decomposition methods and several 
+implementations such as the {browse "https://pypi.org/project/sage-importance/":Python package SAGE} and 
+the {browse "https://CRAN.R-project.org/package=vimp":R package vimp} are available to do so.  Such methods 
 focus on estimating general dominance statistics and are approximations like the {opt epsilon} method.  As 
-such, dominance analysis is not an identical, but similar method to each of these implementations that 
+such, DA is not an identical, but similar method to each of these implementations that 
 can be applied to smaller-scale machine learning models; it is recommended that the user not exceed 
-around 25 independent variables simultaneously.  This recommendation also applies to any linear models as well.
+around 25 IVs simultaneously.  This recommendation also applies to any linear models as well.
 
-{pstd}{help bootstrap}ping can also be applied to {cmd:domin} to produce standard errors for 
-any dominance statistics (see Example #5).  Although standard errors {it:can} be produced, the 
-sampling distribution for dominance weights have not been extensively studied and the information 
-provided by the standard errors is usually redundant with that offered by conditional and complete dominance 
-results.  Obtaining standard errors is thus most useful for the {opt episilon} method.  {help permute} tests 
+{pstd}
+{help bootstrap}ping can also be applied to DA to produce standard errors for any dominance statistics 
+(see Example #5).  Although standard errors {it:can} be produced, the sampling distribution for dominance 
+statistics have not been extensively studied and the information provided by the standard errors is usually 
+similar to that offered by conditional and complete dominance results.  Obtaining standard errors is 
+thus most useful, and practical to implement, for the {opt episilon} method.  {help permute} tests 
 can also be obtained to evaluate statistical differences between dominance statistics.
 
-{pstd}Although {cmd:domin} does not accept the {help svy} prefix it does accept {cmd:pweight}s for commands 
-in {opt reg()} that also accept them.  To adjust the dominance results for a sampling design in complex 
-survey data the user need only provide {cmd:domin} the {cmd:pweight} variable for commands that accept 
-{cmd:pweight}s (see Luchman, 2015).  
+{pstd}
+Although {cmd:domin} does not accept the {help svy} prefix it does accept {cmd:pweight}s for commands 
+in {opt reg()} that also accept them.  To adjust the DA for a sampling design in complex survey data the 
+user need only provide {cmd:domin} the {cmd:pweight} variable for commands that accept {cmd:pweight}s 
+(see Luchman, 2015).  
 
 {space 4}{title:6c] Extending Models that can be Dominance Analyzed}
 
-{pstd}{cmd:domin} comes with 2 wrapper programs {cmd:mvdom} and {cmd:mixdom}.  
+{pstd}{cmd:domin} comes with 3 wrapper programs {cmd:mvdom}, {cmd:mixdom}, and {cmd:fitdom}.  
 
 {pstd}{cmd:mvdom} implements multivariate regression-based dominance analysis described by Azen and Budescu (2006; see {help mvdom}).  
 
@@ -547,6 +552,12 @@ dominance analyzed.
 {pstd}Any program used as a wrapper by {cmd:domin} must accept at least one optional argument and must accept 
 a {help if} statement in its {help syntax}.
 
+{pstd}A third wrapper program, {cmd:fitdom}, takes inspiration from the 
+{browse "https://CRAN.R-project.org/package=domir":R package domir} as it serves as a wrapper for a postestimation 
+command that produces a fit metric such as {help estat ic} or {help estat classification} (see Example #9b and #11; see also {help fitdom}).
+
+{pstd}This program allows postestimation commands that return fit metrics to be used directly in {cmd:domin} 
+without having to make a wrapper program for the entire model (i.e., as in Example #9a).
 
 {marker refs}{...}
 {title:7. References}
@@ -595,7 +606,8 @@ Please cite as:
 {pstd}{stata findit shapley:shapley}, {browse "http://www.marco-sunder.de/stata/rego.html":rego}, 
 {browse "https://ideas.repec.org/c/boc/bocode/s457543.html":shapley2}, 
 {browse "https://CRAN.R-project.org/package=domir":R package domir}, 
-{browse "https://CRAN.R-project.org/package=relaimpo":R package relaimpo}
+{browse "https://CRAN.R-project.org/package=relaimpo":R package relaimpo},
+{browse "https://CRAN.R-project.org/package=dominanceanalysis":R package dominanceanalysis}
 
 {title:Acknowledgements}
 
