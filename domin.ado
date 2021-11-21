@@ -1,4 +1,4 @@
-*! domin version 3.3.0  10/17/2021 Joseph N. Luchman
+*! domin version 3.3.0  11/21/2021 Joseph N. Luchman
 
 program define domin, eclass //history and version information at end of file
 
@@ -1068,5 +1068,5 @@ end
  -bug fix and update to complete dominance computations - inconsistent computation of complete dominance designation
  -update to documentation/helpfile
  -clean up internal functions (naming and redundancy)
- -update to terminology in documnetation and reporting
+ -update to terminology in documentation and reporting
  */
