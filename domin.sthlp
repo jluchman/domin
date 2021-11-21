@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.3.0 October 17, 2021 J. N. Luchman}{...}
+{* *! version 3.3.0 November 21, 2021 J. N. Luchman}{...}
 {cmd:help domin}
 
 {title:Title}
@@ -444,7 +444,7 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 {phang} {stata domin race tenure hours age never_married, reg(myprog) fitstat(e(bic)) consmodel reverse} {p_end}
 
 {phang}Example 9b: Multinomial logistic regression with {cmd:fitdom} {p_end}
-{phang} {stata "domin race tenure hours age never_married, reg(fitdom, fitstat(r(S)[1,6]) reg(mlogit) postestimation(estat ic)) consmodel reverse fitstat(e(fitstat))"} {p_end}
+{phang} {stata "domin race tenure hours age never_married, reg(fitdom, fitstat_fd(r(S)[1,6]) reg_fd(mlogit) postestimation(estat ic)) consmodel reverse fitstat(e(fitstat))"} {p_end}
 
 {phang}Example 9c: Comparison dominance analysis with McFadden's pseudo-R2 {p_end}
 {phang} {stata domin race tenure hours age never_married, reg(mlogit) fitstat(e(r2_p))} {p_end}
@@ -465,7 +465,7 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 {phang} {stata end} {p_end}
 {phang} {stata rforest price mpg headroom weight, type(reg)} {p_end}
 {phang} {stata matrix list e(importance)} {p_end}
-{phang} {stata domin price mpg headroom weight, reg(fitdom, reg(rforest, type(reg)) postestimation(myRFr2) fitstat(e(r2))) fitstat(e(fitstat))} {p_end}
+{phang} {stata domin price mpg headroom weight, reg(fitdom, reg_fd(rforest, type(reg)) postestimation(myRFr2) fitstat_fd(e(r2))) fitstat(e(fitstat))} {p_end}
 
 
 {marker remark}{...}
