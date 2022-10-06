@@ -1,11 +1,26 @@
-**# Mata function to compute all combinations of predictors or predictor sets run all subsets regression, and compute all dominance criteria
 version 12.1
 
+**# Container object for domin specs
+mata:
+
+mata set matastrict on
+
+struct domin_specs {
+	
+	string scalar iv_string, cdlcompu, cptcompu, mi
+	
+	real scalar all_subsets_fitstat, constant_model_fitstat
+	
+}
+
+end
+
+**# Mata function to compute all combinations of predictors or predictor sets run all subsets regression, and compute all dominance criteria
 mata: 
 
 mata set matastrict on
 
-void dominance(string scalar iv_string, string scalar cdlcompu, string scalar cptcompu, real scalar all_subsets_fitstat, real scalar constant_model_fitstat, string scalar mi, pointer scalar model_call) 
+void dominance(struct domin_specs scalar model_specs, pointer scalar model_call)
 {
 	/*# object declarations*/
 	real matrix IV_antiindicator_matrix, conditional_dominance, weighted_order_fitstats, weighted_order1less_fitstats, weight_matrix, complete_dominance, select2IVfits, IV_indicator_matrix, sorted_two_IVs, compare_two_IVs
@@ -27,7 +42,7 @@ void dominance(string scalar iv_string, string scalar cdlcompu, string scalar cp
 	/*parse the predictor inputs*/
 	t = tokeninit(wchars = (" "), pchars = (" "), qchars = ("<>")) //set up parsing rules
 	
-	tokenset(t, iv_string) //register the "iv_string" string scalar for parsing/tokenizing
+	tokenset(t, model_specs.iv_string) //register the "iv_string" string scalar for parsing/tokenizing
 	
 	IVs = tokengetall(t)' //obtain all IV sets and IVs as a vector
 
@@ -111,7 +126,7 @@ void dominance(string scalar iv_string, string scalar cdlcompu, string scalar cp
 	
 		IVs_in_model = invtokens(IV_name_matrix[., x]') //collect a distinct subset of IVs, then collpase names into single string separated by spaces
 	
-		fitstat = (*model_call)(mi, IVs_in_model, all_subsets_fitstat, constant_model_fitstat) // <<- experimental ~~~~~~~~~~~~~~~~~~~~
+		fitstat = (*model_call)(model_specs.mi, IVs_in_model, model_specs.all_subsets_fitstat, model_specs.constant_model_fitstat)
 	
 		fitstat_vector[1, x] = fitstat //add fitstat to vector of fitstats
 
@@ -137,7 +152,7 @@ void dominance(string scalar iv_string, string scalar cdlcompu, string scalar cp
 
 	general_dominance = colsum((weight_matrix:*fitstat_vector)') //general dominance weights created by computing product of weights and fitstats and summing for each IV row-wise; in implementing the rows are transposed and column summed so it forms a row vector as will be needed to make it an "e(b)" vector
 
-	fitstat = rowsum(general_dominance) + all_subsets_fitstat + constant_model_fitstat //total fitstat is then sum of gen. dom. wgts replacing the constant-only model and the "all" subsets stat
+	fitstat = rowsum(general_dominance) + model_specs.all_subsets_fitstat + model_specs.constant_model_fitstat //total fitstat is then sum of gen. dom. wgts replacing the constant-only model and the "all" subsets stat
 
 	st_matrix("r(domwgts)", general_dominance) //return the general dom. wgts as r-class matrix
 
@@ -158,7 +173,7 @@ void dominance(string scalar iv_string, string scalar cdlcompu, string scalar cp
 	
 	
 	/*compute conditional dominance*/
-	if (strlen(cdlcompu) == 0) {
+	if (strlen(model_specs.cdlcompu) == 0) {
 	
 		if (number_of_IVs > 5) printf("\n\n{txt}Computing conditional dominance\n")
 	
@@ -180,7 +195,7 @@ void dominance(string scalar iv_string, string scalar cdlcompu, string scalar cp
 	}
 	
 	/*compute complete dominance*/
-	if (strlen(cptcompu) == 0) {
+	if (strlen(model_specs.cptcompu) == 0) {
 	
 		if (number_of_IVs > 5) printf("\n{txt}Computing complete dominance\n")
 

@@ -363,8 +363,17 @@ if strlen("`epsilon'") { //primary analysis when "epsilon" is invoked
 }
 
 else {
+	
+	mata: model_specs = domin_specs()
+	
+	mata: model_specs.iv_string = st_local("ivs")
+	mata: model_specs.cdlcompu = st_local("conditional'")
+	mata: model_specs.cptcompu = st_local("complete")
+	mata: model_specs.mi = st_local("mi")
+	mata: model_specs.all_subsets_fitstat = st_numscalar(st_local("allfs"))
+	mata: model_specs.constant_model_fitstat = st_numscalar(st_local("consfs"))
 
-	mata: dominance(`"`ivs'"', "`conditional'", "`complete'", `=`allfs'', `=`consfs'', "`mi'", &domin_call())	//invoke "dominance()" function in Mata
+	mata: dominance(model_specs, &domin_call())	//invoke "dominance()" function in Mata  
 	
 	/*translate r-class results into temp results*/
 	matrix `domwgts' = r(domwgts)
@@ -724,5 +733,7 @@ end
  -update to terminology in documentation and reporting
  ---
  domin version 3.4.0 - mth, day, 20xx
- - reorganization of mata code; function to function passing
+ - reorganization of Mata code; function to function passing; Mata struct to handle input specs
+	- lb_dominance.mlib now contains all complied Mata code for -domin- generalized for accommodating -domme- and future commands
+ - increased precision of passed 'all' and 'constant' fit stats
  */
