@@ -1,4 +1,4 @@
-*! domin version 3.4.0  xx/xx/20xx Joseph N. Luchman
+*! domin version 3.4.0  11/3/2022 Joseph N. Luchman
 
 program define domin, eclass //history and version information at end of file
 

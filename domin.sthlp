@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.3.0 November 21, 2021 J. N. Luchman}{...}
+{* *! version 3.4.0 November 3, 2022 J. N. Luchman}{...}
 {cmd:help domin}
 
 {title:Title}
@@ -81,12 +81,13 @@ assumed to be a single value (i.e., scalar valued).
 
 {pstd}
 The DA implementation of Shapley value decomposition works by using a pre-selected 
-predictive model and applying a very extensive experimental design to it. Effectively, DA treats 
-the predictive model as data and the IVs as factors in an experiment with a within-subjects 
+predictive model and applying an experimental design to evaluate how IVs contribute. 
+The DA treats the predictive model as a data generating process with the fit statistic as the 
+dependent variable.  The IVs of the predictive model are used as factors with a within-subjects 
 full-factorial design (i.e., all possible combinations of the IVs are applied to the data). Another 
 way of describing the process is as a brute force method where sub-models reflecting all possible 
 combinations of the IVs being included or excluded is estimated from the data and the fit statistic 
-associated with each sub-model is collected. Assuming there are {it:p} IVs in the pre-selected model, 
+associated with each sub-model is collected. Given {it:p} IVs in the pre-selected model, 
 obtaining all possible combinations of the IVs results in 2^{it:p} sub-models to be estimated 
 (see Budescu, 1993).
 
@@ -97,10 +98,11 @@ There are three dominance designations obtained using the fit statistics from al
 
 {pstd}
 General dominance is designated/determined using general dominance statistics.  General dominance 
-statistics divide up the overall fit statistic associated with the pre-selected model into contributions associated with each IV. General dominance is designated from these general dominance statistics by 
+statistics divide up the overall fit statistic associated with the pre-selected model into contributions 
+associated with each IV. General dominance is designated from these general dominance statistics by 
 comparing the magnitude of the statistic associated with each IV to the general dominance statistics 
-associated with each other IV.  If IV {it:X} has a larger general dominance statistic than 
-IV {it:Y}, then {it:X} generally dominates {it:Y}.  If general dominance statistics 
+associated with each other IV.  If IV {it:X_v} has a larger general dominance statistic than 
+IV {it:X_z}, then {it:X_v} generally dominates {it:X_z}.  If general dominance statistics 
 are equal for two IVs, then no general dominance designation can be made between those IVs.
 
 {pstd}
@@ -108,13 +110,14 @@ General dominance statistics are the Shapley values decomposing the overall fit 
 pre-selected model.  As such, the general dominance statistics are an additive decomposition of the 
 overall fit statistic and can be summed to obtain overall fit statistic's value.  General dominance, 
 of the three dominance desinations, is least stringent or the weakest designation.  This is because 
-it is possible to rank order IVs in almost any situation except when two IVs are exactly equal.
+it is possible to rank order IVs in almost any situation except when two IVs are exactly equal in terms 
+of their contributons to fit across all sub-models.
 
 {pstd}
 General dominance statistics are computed by averaging across {it:all} sub-models for each IV. 
-Specifically, general dominance statistics are an IV combination-weighted average of the 
+This makes general dominance statistics an IV combination-weighted average of the 
 marginal/incremental contributions the IV makes to the overall fit statistic across all sub-models in 
-which it is included. How the it:IV combination weighting works and how that affects the 
+which it is included. How the IV combination weighting works and how that affects the 
 computations is discussed more below.  It is imporant to note that general dominance statistics are 
 the arithmetic average of all conditional dominance statistics discussed next.
 
@@ -124,30 +127,32 @@ the arithmetic average of all conditional dominance statistics discussed next.
 Conditional dominance is designated using conditional dominance statistics.  Conditional dominance 
 statistics are further decompositions of the pre-selected model's fit statistic that are ascribed to 
 each IV but based on that IV's contribiton when a specific number of IVs are included in a sub-model. 
-Each IV then has {it:p} conditional dominance statistics associated with it.  Conditional domiance is 
+Each IV then has {it:p} conditional dominance statistics associated with it.  Conditional dominance is 
 designated by comparing the magnitide of an IV's conditional dominance statistics, at a specific number 
 of IVs included in the sub-model, to the magnitude of another IV's conditional dominance statistics at 
-that same number of IVs included in the sub-model.  If IV {it:X} has larger conditional dominance 
-statistics than IV {it:Y} across all {it:p} valid/within-number of IVs in a sub-model comparisons, 
-{it:X} conditionally dominates IV {it:Y}.  If, at any of the valid {it:p} comparisons, the conditional 
-dominance statistics for two IVs are equal or there is a change rank order (i.e., {it:X}'s conditional 
-dominance statistic is smaller than {it:Y}'s), no conditional dominance designation can be made 
+that same number of IVs included in the sub-model.  If IV {it:X_v} has larger conditional dominance 
+statistics than IV {it:X_z} across all {it:p} valid/within-number of IVs in a sub-model comparisons, 
+{it:X_v} conditionally dominates IV {it:X_z}.  If, at any of the valid {it:p} comparisons, the conditional 
+dominance statistics for two IVs are equal or there is a change rank order (i.e., {it:X_v}'s conditional 
+dominance statistic is smaller than {it:X_z}'s), no conditional dominance designation can be made 
 between those IVs. 
 
 {pstd}
-Conditional dominance statistics are an extension of the Shapley values that further decompose them to obtain 
-a stronger importance designation and provide more information about each IV.  Although the conditional 
-dominance statistics no longer sum to the pre-selected model's overall fit statistic, conditional dominance 
-statistics reveal the effect that IV redundancy, as well as IV interactions when modeled, have on prediction. 
+Conditional dominance statistics are an extension of Shapley values that further decompose the 
+fit statistic to obtain a stronger importance designation and provide more information about each IV.  
+Although the conditional dominance statistics do not sum to the pre-selected model's overall fit statistic 
+as do general dominance statistics, conditional dominance statistics reveal the effect that IV redundancy, 
+as well as IV interactions when they are included in the pre-selected model, have on prediction. 
 
 {pstd}
 Conditional dominance statistics are more challenging to interpret than general dominance statistics as they are 
 evaluated as an IV's predtive trajectory across different numbers of IVs included in sub-models.  
 Conditional dominance is also a more stringent/stronger dominance designation than general dominance as it 
-is more difficult for one IV to conditionally dominate than it is for one IV to generally dominate another IV 
-as there are more ways in which conditional dominance can fail to be achieved.  Conditional dominance also implies 
-general dominance–but the reverse is not true. An IV can generally, but not conditionally, dominate 
-another IV.
+is more difficult for one IV to conditionally dominate than it is for one IV to generally dominate another IV. 
+Conditional dominance is a more stringent criterion as there are more ways in which conditional dominance can fail 
+to be achieved as all {it:p} conditional dominance statistics for an IV must be greater than another IV's statistics.  
+Conditional dominance also implies general dominance–but the reverse is not true. 
+An IV can generally, but not conditionally, dominate another IV.
  
 {pstd}
 Conditional dominance statistics are computed as the average incremental contribution to prediction an IV 
@@ -155,29 +160,31 @@ makes within all possible combinations of the IVs in where the focal IV is inclu
 statistics.  What makes conditional dominance statistics different from general dominance is that there are {it:p}
 conditional dominance statistics reflecting the average contribution the IV makes when a set number of IVs 
 are allowed to be used in the sub-model.  Hence, the averages will reflect different numbers of individual 
-sub-models.  When there are more possible combinations of IVs for a specific number of IVs allowed in the sub-model, the average it produces are based on more sub-models.  Thus, when the arithmetic average of all the 
+sub-models.  When there are more possible combinations of IVs for a specific number of IVs allowed in the sub-model, 
+the average it produces are based on more sub-models.  Thus, when the arithmetic average of all the 
 conditional dominance statistics is used to obtain general dominance statistics, each sub-model in the 
 general dominance statistics is IV combination-weighted where specific sub-models that are included along with 
-greater numbers of other sub-models (i.e., more combinations at that number of IVs) are down-weighted relative to those that are included with fewer (i.e., fewer combinations at that number of IVs).  
+greater numbers of other sub-models (i.e., more combinations at that number of IVs) are down-weighted relative to 
+those that are included with fewer (i.e., fewer combinations at that number of IVs).  
 
 {space 4}{title:1c] Complete Dominance}
 
 {pstd}
 Complete dominance is designated differently from general and conditional dominance as there are 
-no statistics computed for this designation.  Rather, complete dominance is designated by comparing 
-{it:all} valid sub-models that can be compared between two IVs.  This results in 2^({it:p} - 2) valid 
-comparisons between the two IVs reflecting comparisons between sub-models including both focal IVs across 
-all possible combinations of the other {it:p} - 2 IVs. If IV {it:X} has a larger incremental contribution 
-to model fit than IV {it:Y} across all possible sub-models with the same different combination of the 
-other {it:p} - 2 IVs, then IV {it:X} completely dominates IV {it:Y}. If, for any specific sub-model 
-comparison, the incremental contribution to fit for two IVs are equal or there is a change in rank order (i.e., 
-{it:X}'s incremental contribution to fit is smaller than {it:Y}'s), no complete dominance designation can be 
-made between those IVs. 
+no statistics computed for this designation.  Complete dominance is designated by comparing the 
+fit statistics produced by {it:all} sub-models between two IVs where the IV's not under consideration 
+are held constant.  This results in 2^({it:p} - 2) comparisons between the two IVs reflecting comparisons 
+between sub-models including both focal IVs across all possible combinations of the other {it:p} - 2 IVs. 
+If IV {it:X_v} has a larger incremental contribution to model fit than IV {it:X_z} across all possible sub-models 
+of different combinations of the other {it:p} - 2 IVs, then IV {it:X_v} completely dominates IV {it:X_z}. 
+If, for any specific sub-model comparison, the incremental contribution to fit for two IVs are equal or there is a 
+change in rank order (i.e., {it:X_v}'s incremental contribution to fit is smaller than {it:X_z}'s), no complete 
+dominance designation can be made between those IVs. 
 
 {pstd}
 Complete dominance designations are also extensions of Shapley values that use specific sub-model comparisons 
 to obtain the strongest dominance designation possible.  Complete dominance is strongest as there are a great 
-number of ways in which it can fail to be achieved.  Every valid comparison must be greater for one IV 
+number of ways in which it can fail to be achieved.  This is because every comparison must be greater for one IV 
 than another for complete dominance to be designated.  Complete dominance also imples both general and 
 conditional dominance, but, again, the reverse is not true.  An IV can generally and/or conditionally 
 dominate another, but not completely dominate it.
@@ -187,8 +194,8 @@ dominate another, but not completely dominate it.
 
 {pstd}
 {cmd:domin}, by default, will produce all three types (i.e., general, conditional, and complete) of 
-dominance statistics and designations.  The general dominance statistics are considered the primary 
-statistics produced by {cmd:domin}, are thus reflected as the {res}e(b){txt} vector, cannot be 
+dominance statistics or designations.  The general dominance statistics are considered the primary 
+statistics produced by {cmd:domin}, are returned as the {res}e(b){txt} vector, cannot be 
 suppressed in the output, and are the first set of statistics to be displayed.  Two additional results 
 are produced along with the general dominance statistics: a vector of standardized general dominance 
 statistics and a set of ranks.  The standardized vector is general dominance statistic vector normed 
@@ -205,7 +212,7 @@ all {it:p} IVs in the model.  Each row corresponds to the conditional dominance 
 IV.
 
 {pstd}
-Complete dominance are reported third, can be suppressed by the {opt nocomplete} option, and are also 
+Complete dominance designations are reported third, can be suppressed by the {opt nocomplete} option, and are also 
 displayed in matrix format.  The rows of the complete dominance matrix correspond to dominance of the 
 IV in that row over the IV in each column.  If a row entry has a 1, the IV associated with 
 the row completely dominates the IV associated with the column.  By contrast, if a row entry has a -1, the 
@@ -225,8 +232,8 @@ between all IV pairs.
 
 {phang}{opt reg(command, command_options)} is the command implementing the predictive model on which 
 the DA is based.  The command can be any official Stata command, any community-contributed command from SSC, 
-or any user-written {help program:program}.  All commands must follow the traditional Stata single equation 
-{it: cmd depvar indepvars} syntax.  
+or any user-written {help program:program}.  All commands must follow the traditional Stata single predictive 
+equation {it: cmd depvar indepvars} syntax.  
 
 {pmore}{opt reg()} also allows the user to pass options to the preditive modeling command.  When a comma is 
 added in {opt reg()}, all the arguments following the comma will be passed to each run of the command as 
@@ -240,7 +247,10 @@ compute all dominance statistics/designations.  The scalar in {opt fitstat()} ca
 
 {pmore}{opt fitstat()} defaults to {opt fitstat(e(r2))} with a warning denoting the default behavior.
 
-{phang}{opt sets((iVset_1) ... (iVset_N))} binds together IVs as a set in the DA. All IVs in a 
+{pmore}See {help fitdom} for wrapper command to use fit statistics computed as postestimation commands such 
+as {cmd: estat ic} (see Example #9b).
+
+{phang}{opt sets((IVset_1) ... (IVset_N))} binds together IVs as a set in the DA. All IVs in a 
 set will always appear together in sub-models and are considered a single IV for the purpose of determining 
 the number of sub-models.
 
@@ -252,7 +262,7 @@ sets denoted "set1" and "set2" in the output.  {it:set1} will be created from th
 number of IVs that can be in an individual {it:IVset} and there are no limits to the number of {it:IVset}s 
 that can be created.
 
-{pmore}The {opt sets()} option commonly used for obtaining dominance statistics/designations for IVs
+{pmore}The {opt sets()} option is commonly used for obtaining dominance statistics/designations for IVs
 that are more interpretable when combined, such as several dummy or effects codes reflecting mutually 
 exclusive groups as well as non-linear or interaction terms.  {help Factor variables} can be included in 
 any {opt sets()} (see Examples #3 and #4b below).
@@ -265,7 +275,7 @@ and {it:IVset}s) and the IVs in the {it:IVall} set are not considered a "set" fo
 determining the number of sub-models.
 
 {pmore}The {opt all()} option is most commonly used a way to control for a set of covariates in all sub-models.  
-{opt all()} also accepts {help factor variables} (see Example #2 below).
+{opt all()} also accepts {help factor variables} (see Example #2).
 
 {phang}{opt consmodel} uses the model with no IVs as an adjustment to the overall fit statistic.  
 {opt consomdel} changes the interpretation of the overall fit statistic on which the DA is run.  When 
@@ -284,7 +294,7 @@ baseline value.
 
 {phang}{opt mi} invokes Stata's {help mi} options across all sub-models.  Thus, each sub-model's 
 analysis is run using the {cmd:mi estimate} prefix and all the {opt fitstat()} statistics returned 
-by the analysis program are averaged across all imputations (see Example #10 below).  
+by the analysis program are averaged across all imputations (see Example #10).  
 
 {pmore}To pass specific {opt mi} prefix options to each sub-model, use {opt miopt()} below.
 
@@ -292,7 +302,7 @@ by the analysis program are averaged across all imputations (see Example #10 bel
 passed the options in {opt miopt()}.  Each of the entries in {opt miopt()} must be a valid option 
 for {cmd:mi estimate}.  
 
-{pmore}Invoking {opt miopt()} without {opt mi} turns {opt mi} on and produces a warning noting that 
+{pmore}Invoking {opt miopt()} without {opt mi} invokes {opt mi} and produces a warning noting that 
 the user neglected to also specify {opt mi}. 
 
 {phang}{opt epsilon} is an alternative Shapley value decomposition estimator also known as 
@@ -314,7 +324,7 @@ complete extentions of to Shapley value decomposition; hence requires {opt nocon
 {pmore}{opt epsilon} also requires built-in estimators (i.e., cannot be applied to any model like DA).  
 Currently, {opt epsilon} works with commands {cmd:regress}, {cmd:glm} (for any {opt link()} and 
 {opt family()}; see Tonidandel & LeBreton, 2010), as well as {cmd:mvdom} (the user-written wrapper 
-program for multivariate regression; see LeBreton & Tonidandel, 2008; see also Example #6 below).  
+program for multivariate regression; see LeBreton & Tonidandel, 2008; see also Example #6).  
 By default, {opt epsilon} assumes {opt reg(regress)} and {opt fitstat(e(r2))}.  Note that {opt epsilon} 
 ignores entries in {opt fitstat()} as it produces its own fit statistic.  {opt episilon}'s implementation 
 does not allow {opt consmodel}, {opt reverse}, {opt mi}, and does not allow the use of {help weights}.   
@@ -409,7 +419,7 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 {phang} {stata predict mpg_headrr, resid} {p_end}
 {phang} {stata domin price mpg headroom mpg2r headr2r mpg_headrr} {p_end}
 
-{phang}Example 4b: Comparison of IVs containing interaction and non-linear terms using sets {p_end}
+{phang}Example 4b: Experimental Comparison of IVs containing interaction and non-linear terms using sets {p_end}
 {phang} {stata "domin price, sets((mpg c.mpg#c.mpg c.mpg#c.headroom) (headroom c.headroom#c.headroom c.mpg#c.headroom))"} {p_end}
 
 {phang}Example 5: Epsilon-based linear regression approach to dominance with bootstrapped standard errors{p_end}
@@ -421,7 +431,7 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 {phang}Comparison dominance analysis with Pxy metric{p_end}
 {phang} {stata domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight) pxy) fitstat(e(r2))} {p_end}
 {phang}Comparison dominance analysis with {opt epsilon}{p_end}
-{phang} {stata domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight)) epsilon)} {p_end}
+{phang} {stata domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight)) epsilon} {p_end}
 
 {phang}Example 7: Gamma regression with deviance fitstat and constant-only comparison using {opt reverse}{p_end}
 {phang} {stata domin price mpg rep78 headroom, reg(glm, family(gamma) link(power -1)) fitstat(e(deviance)) consmodel reverse} {p_end}
@@ -506,10 +516,11 @@ When using DA with cateorical or non-addtive IVs (e.g., interaction terms) the u
 be deliberate in how they are incorporated.  In general, all indicator codes from a {help factor variable} 
 should be included and excluded together as a set unless the user has a compelling reason not to do so 
 (i.e., it is important for the research question to understand importance differences between categories 
-of a categorical independent variable).  Similarly, DA withnon-additive factor variables such as 
+of a categorical independent variable).  Similarly, DA with non-additive factor variables such as 
 interactions or non-linear variables (e.g., {it:c.iv##c.iv}) could be included, as a set, with lower order 
 terms or users can follow the residualization method laid out by LeBreton, Tonidandel, and Krasikova (2013; 
-see Example #4) unless there is a compelling reason not to do so.
+see Example #4) unless there is a compelling reason not to do so.  Note that the set-based approach to 
+grouping interactions, in particular, is experimental for linear models.
 
 {pstd}
 Models that are intrinsically non-additive such as {stata findit rforest:rforest} (see Example #11) or 
@@ -596,18 +607,19 @@ Please cite as:
 {title:Author}
 
 {p 4}Joseph N. Luchman{p_end}
-{p 4}Senior Scientist{p_end}
-{p 4}Fors Marsh Group LLC{p_end}
+{p 4}Principal Scientist{p_end}
+{p 4}Fors Marsh{p_end}
 {p 4}Arlington, VA{p_end}
-{p 4}jluchman@forsmarshgroup.com{p_end}
+{p 4}jluchman@forsmarsh.com{p_end}
 
 {title:See Also}
 
-{pstd}{stata findit shapley:shapley}, {browse "http://www.marco-sunder.de/stata/rego.html":rego}, 
+{pstd}{stata findit shapley:shapley}, 
+{browse "http://www.marco-sunder.de/stata/rego.html":rego}, 
 {browse "https://ideas.repec.org/c/boc/bocode/s457543.html":shapley2}, 
 {browse "https://CRAN.R-project.org/package=domir":R package domir}, 
 {browse "https://CRAN.R-project.org/package=relaimpo":R package relaimpo},
-{browse "https://CRAN.R-project.org/package=dominanceanalysis":R package dominanceanalysis}
+{browse "https://cran.r-project.org/web/packages/domir/vignettes/domir_basics.html": Detailed description of Dominance Analysis}
 
 {title:Acknowledgements}
 

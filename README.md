@@ -42,7 +42,7 @@ The default analysis for `domin` is `regress` with `fitstat(e(r2))` and these op
 .    webuse auto
 (1978 Automobile Data)
 
-.     domin price mpg rep78 headroom
+. domin price mpg rep78 headroom
 Regression type not entered in reg(). 
 reg(regress) assumed.
 
@@ -50,7 +50,7 @@ Fitstat type not entered in fitstat().
 fitstat(e(r2)) assumed.
 
 
-Total of 7 regressions
+Total of 7 sub-models
 
 General dominance statistics: Linear regression
 Number of obs             =                      69
@@ -63,6 +63,7 @@ Overall Fit Statistic     =                  0.2575
  rep78      |         0.0218      0.0847            2 
  headroom   |         0.0094      0.0366            3 
 -------------------------------------------------------------------------------------
+
 -more-
 ```
 
@@ -86,6 +87,7 @@ Conditional dominance statistics
    rep78       0.0000       0.0218       0.0436
 headroom       0.0124       0.0094       0.0065
 -------------------------------------------------------------------------------------
+
 -more-
 ```
 Conditional dominance statistics are computed as the average incremental contributions to the overall model fit statistic an independent variable makes within a single "order" of models--where "order" refers to a distinct number of independent variables in the estimation model. In the example above, order one is `#indepvars:1` and refers to the incremental contribution the independent variable makes by itself. Order two is `#indepvars:2` and refers to the average incremental contribution the independent variable makes beyond a single other independent variable. Finally, order three is `#indepvars:3` and refers to the incremental contribution the independent variable makes beyond the other two independent variables.
@@ -111,6 +113,7 @@ Complete dominance designation
    dominates?:rep78           -1            0            0
 dominates?:headroom           -1            0            0
 -------------------------------------------------------------------------------------
+
 -more-
 ```
 Complete dominance designations are made by comparing all possible incremental contributions to model fit for two independent variables. Complete dominance is the strongest evidence of importance across dominance designations as it is the most stringent comparison, requiring that an independent variable **always** have a larger increment to model fit across all,  2^(p-2)^ comparable individual models in the ensemble. This metric is stringent as it is non-compensatory; it is not possible for some better incremental contributions to compensate for other, worse ones. 
@@ -141,7 +144,7 @@ A model like `ologit` is easy to accommodate in `domin` like below.
 ```
 . domin rep78 trunk weight length, reg(ologit) fitstat(e(r2_p)) all(turn)
 
-Total of 7 regressions
+Total of 7 sub-models
 
 General dominance statistics: Ordered logistic regression
 Number of obs             =                      69
@@ -196,7 +199,7 @@ Note that the dominance statistics reported are now residual-ized and reflect th
 ```
 . domin foreign trunk weight, reg(logit) fitstat(e(r2_p)) sets((i.rep78))
 
-Total of 7 regressions
+Total of 7 sub-models
 
 General dominance statistics: Logistic regression
 Number of obs             =                      59
@@ -250,16 +253,13 @@ The example below outlines a process in which two quadratic effects and a produc
 The process involves residual-izing the squared and product terms and using them, as is, in the DA.
 
 ```
-.     generate mpg2 = mpg^2
+. generate mpg2 = mpg^2
 
-. 
-.     generate headr2 = headroom^2
+. generate headr2 = headroom^2
 
-. 
-.     generate mpg_headr = mpg*headroom
+. generate mpg_headr = mpg*headroom
 
-. 
-.     regress mpg2 mpg
+. regress mpg2 mpg
 
       Source |       SS           df       MS      Number of obs   =        74
 -------------+----------------------------------   F(1, 72)        =   2425.89
@@ -269,17 +269,15 @@ The process involves residual-izing the squared and product terms and using them
        Total |  5807981.84        73   79561.395   Root MSE        =     48.22
 
 ------------------------------------------------------------------------------
-        mpg2 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+        mpg2 | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
 -------------+----------------------------------------------------------------
          mpg |   48.04619   .9754908    49.25   0.000     46.10159     49.9908
        _cons |  -536.6594   21.51824   -24.94   0.000    -579.5552   -493.7636
 ------------------------------------------------------------------------------
 
-. 
-.     predict mpg2r, resid
+. predict mpg2r, resid
 
-. 
-.     regress headr2 headroom
+. regress headr2 headroom
 
       Source |       SS           df       MS      Number of obs   =        74
 -------------+----------------------------------   F(1, 72)        =   3197.55
@@ -289,17 +287,15 @@ The process involves residual-izing the squared and product terms and using them
        Total |  1991.03463        73   27.274447   Root MSE        =    .78036
 
 ------------------------------------------------------------------------------
-      headr2 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+      headr2 | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
 -------------+----------------------------------------------------------------
     headroom |    6.10485   .1079609    56.55   0.000     5.889633    6.320066
        _cons |  -8.607759   .3356446   -25.65   0.000    -9.276855   -7.938664
 ------------------------------------------------------------------------------
 
-. 
-.     predict headr2r, resid
+. predict headr2r, resid
 
-. 
-.     regress mpg_headr mpg headroom
+. regress mpg_headr mpg headroom
 
       Source |       SS           df       MS      Number of obs   =        74
 -------------+----------------------------------   F(2, 71)        =   1102.79
@@ -309,18 +305,16 @@ The process involves residual-izing the squared and product terms and using them
        Total |   25085.625        73  343.638699   Root MSE        =    3.3195
 
 ------------------------------------------------------------------------------
-   mpg_headr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+   mpg_headr | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
 -------------+----------------------------------------------------------------
          mpg |   2.837136   .0737653    38.46   0.000     2.690052     2.98422
     headroom |   20.40514   .5044586    40.45   0.000     19.39927      21.411
        _cons |  -59.75086   2.619192   -22.81   0.000    -64.97338   -54.52834
 ------------------------------------------------------------------------------
 
-. 
-.     predict mpg_headrr, resid
+. predict mpg_headrr, resid
 
-. 
-.     domin price mpg headroom mpg2r headr2r mpg_headrr
+. domin price mpg headroom mpg2r headr2r mpg_headrr
 Regression type not entered in reg(). 
 reg(regress) assumed.
 
@@ -328,9 +322,9 @@ Fitstat type not entered in fitstat().
 fitstat(e(r2)) assumed.
 
 
-Total of 31 regressions
+Total of 31 sub-models
 
-Progress in running all regression subsets
+Progress in running all sub-models
 0%------50%------100%
 ....................
 General dominance statistics: Linear regression
@@ -363,9 +357,9 @@ Complete dominance designation
                         dominated?:  dominated?:  dominated?:  dominated?:  dominated?:
                                mpg     headroom        mpg2r      headr2r   mpg_headrr
        dominates?:mpg            0            1            1            1            1
-  dominates?:headroom           -1            0           -1           -1            0
+  dominates?:headroom           -1            0           -1            0            0
      dominates?:mpg2r           -1            1            0            1            1
-   dominates?:headr2r           -1            1           -1            0            1
+   dominates?:headr2r           -1            0           -1            0            1
 dominates?:mpg_headrr           -1            0           -1           -1            0
 -------------------------------------------------------------------------------------
 
@@ -373,17 +367,70 @@ Strongest dominance designations
 
 mpg completely dominates headroom
 mpg2r completely dominates headroom
-headr2r completely dominates headroom
 mpg completely dominates mpg2r
 mpg completely dominates headr2r
 mpg2r completely dominates headr2r
 mpg completely dominates mpg_headrr
 mpg2r completely dominates mpg_headrr
 headr2r completely dominates mpg_headrr
+headr2r conditionally dominates headroom
 headroom generally dominates mpg_headrr
 ```
 
 In this case, the squared term for _mpg_ (i.e., _mpg2r_) was actually more important than most other terms in the model. This approach is based on the article by LeBreton, Tonidandel, and Krasikova (2013).
+
+As an alternative experimental approach, quadratic and interaction terms are grouped as a set with their main effects term to determine IV-based importance with the use of _sets_ as below.
+
+```
+. domin price, sets((mpg c.mpg#c.mpg c.mpg#c.headroom) (headroom c.headroom#c.headroom c.mpg#c.headroom))
+Regression type not entered in reg(). 
+reg(regress) assumed.
+
+Fitstat type not entered in fitstat(). 
+fitstat(e(r2)) assumed.
+
+
+Total of 3 sub-models
+
+
+General dominance statistics: Linear regression
+Number of obs             =                      74
+Overall Fit Statistic     =                  0.3948
+
+            |      Dominance      Standardized      Ranking
+ price      |      Stat.          Domin. Stat.
+------------+------------------------------------------------------------------------
+ set1       |         0.2315      0.5864            1 
+ set2       |         0.1633      0.4136            2 
+-------------------------------------------------------------------------------------
+Conditional dominance statistics
+-------------------------------------------------------------------------------------
+
+       #indepvars:  #indepvars:
+                1            2
+set1       0.3664       0.0966
+set2       0.2982       0.0284
+-------------------------------------------------------------------------------------
+Complete dominance designation
+-------------------------------------------------------------------------------------
+
+                  dominated?:  dominated?:
+                        set1         set2
+dominates?:set1            0            1
+dominates?:set2           -1            0
+-------------------------------------------------------------------------------------
+
+Strongest dominance designations
+
+set1 completely dominates set2
+
+Variables in set1: mpg c.mpg#c.mpg c.mpg#c.headroom
+Variables in set2: headroom c.headroom#c.headroom c.mpg#c.headroom
+```
+
+As can be seen, the pattern of importance is starkly different from that of the individual models as some of _mpg_'s effect in the prior model is carrying over and being ascribed to _headroom_ given the interaction term.  
+
+The sets approach partly simplifies the determination of importance as there are fewer terms to separate out, but also complicates it as it is harder for the model to effectively distinguish between the contributions of the interacting terms.  Again, this approach is experimental and empirical research on it as an approach has yet to be conducted.
 
 ## Linear Regression-based Relative Weights Analysis with Bootstrapped Standard Errors
 
@@ -394,7 +441,7 @@ In this case, the squared term for _mpg_ (i.e., _mpg2r_) was actually more impor
 DA and RWA can also be `boostrap`-ped to obtain standard errors and evaluate statistic sampling stability if desired.
 
 ```
-.     bootstrap, reps(500): domin price mpg headroom trunk turn gear_ratio foreign length weight, epsilon
+. bootstrap, reps(500): domin price mpg headroom trunk turn gear_ratio foreign length weight, epsilon
 (running domin on estimation sample)
 
 Bootstrap replications (500)
@@ -427,15 +474,14 @@ Overall Fit Statistic     =                  0.5806
  weight     |         0.1620      0.2791            1 
 -------------------------------------------------------------------------------------
 
-. 
-.     estat bootstrap
+. estat bootstrap
 
 Dominance analysis                              Number of obs     =         74
                                                 Replications      =        500
 
 ------------------------------------------------------------------------------
              |    Observed               Bootstrap
-       price |       Coef.       Bias    Std. Err.  [95% Conf. Interval]
+       price | coefficient       Bias    std. err.  [95% conf. interval]
 -------------+----------------------------------------------------------------
          mpg |   .08025451   .0056983   .02608266    .0428729   .1343196  (BC)
     headroom |   .01480511    .005788   .00994976    .0045644   .0253761  (BC)
@@ -446,7 +492,7 @@ Dominance analysis                              Number of obs     =         74
       length |   .08242763   .0060164   .01522731    .0471752   .1077507  (BC)
       weight |   .16203422   .0023967   .03416152    .0966866   .2320645  (BC)
 ------------------------------------------------------------------------------
-(BC)   bias-corrected confidence interval
+Key: BC: Bias-corrected
 ```
 
 Note that other Stata post-estimation commands such as `test` can be used to evaluate differences between these statistics.
@@ -462,7 +508,7 @@ The model reflected in the `mvdom`-based DA below is:
 ```
 . domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight)) fitstat(e(r2))
 
-Total of 15 regressions
+Total of 15 sub-models
 
 General dominance statistics: Multivariate regression
 Number of obs             =                      74
@@ -507,18 +553,85 @@ mpg completely dominates trunk
 turn completely dominates trunk
 ```
 
-The dominance statistics above account for multiple dependent variables and are based on the approach described by Azen and Budescu (2006).
+The dominance statistics above account for multiple dependent variables and are based on the approach described by Azen and Budescu (2006).  An alternative fit metric, _P_xy_, is reported below for the same model.
+
+```
+. domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight) pxy) fitstat(e(r2))
+
+Total of 15 sub-models
+
+General dominance statistics: Multivariate regression
+Number of obs             =                      74
+Overall Fit Statistic     =                  0.2229
+
+            |      Dominance      Standardized      Ranking
+ price      |      Stat.          Domin. Stat.
+------------+------------------------------------------------------------------------
+ mpg        |         0.0677      0.3039            2 
+ headroom   |         0.0218      0.0980            4 
+ trunk      |         0.0452      0.2028            3 
+ turn       |         0.0881      0.3952            1 
+-------------------------------------------------------------------------------------
+Conditional dominance statistics
+-------------------------------------------------------------------------------------
+
+           #indepvars:  #indepvars:  #indepvars:  #indepvars:
+                    1            2            3            4
+     mpg       0.1360       0.0631       0.0412       0.0307
+headroom       0.0585       0.0123       0.0086       0.0079
+   trunk       0.1076       0.0373       0.0199       0.0160
+    turn       0.1577       0.0830       0.0606       0.0510
+-------------------------------------------------------------------------------------
+Complete dominance designation
+-------------------------------------------------------------------------------------
+
+                      dominated?:  dominated?:  dominated?:  dominated?:
+                             mpg     headroom        trunk         turn
+     dominates?:mpg            0            1            1           -1
+dominates?:headroom           -1            0           -1           -1
+   dominates?:trunk           -1            1            0           -1
+    dominates?:turn            1            1            1            0
+-------------------------------------------------------------------------------------
+
+Strongest dominance designations
+
+turn completely dominates mpg
+mpg completely dominates headroom
+trunk completely dominates headroom
+turn completely dominates headroom
+mpg completely dominates trunk
+turn completely dominates trunk
+```
+
+And a final model uses the _epsilon_ estimator which uses the _P_xy_ metric.
+
+```
+. domin price mpg headroom trunk turn, reg(mvdom, dvs(gear_ratio foreign length weight)) epsilon
+
+General dominance statistics: Epsilon-based mvdom
+Number of obs             =                      74
+Overall Fit Statistic     =                  0.2229
+
+            |      Dominance      Standardized      Ranking
+ price      |      Stat.          Domin. Stat.
+------------+------------------------------------------------------------------------
+ mpg        |         0.0681      0.3056            2 
+ headroom   |         0.0229      0.1030            4 
+ trunk      |         0.0452      0.2028            3 
+ turn       |         0.0866      0.3886            1 
+-------------------------------------------------------------------------------------
+```
 
 ## Gamma regression-based DA
 
-`domin` allows for any scalar valued fit metric to br used as a DA-able metric and thus statistics such as model deviance can be used.
+`domin` allows for any scalar valued fit metric to be used as a DA-able metric and thus statistics such as model deviance can be used.
 
 The example below uses a `glm` model with a gamma distribution.
 
 ```
 . domin price mpg rep78 headroom, reg(glm, family(gamma) link(power -1)) fitstat(e(deviance)) consmodel reverse
 
-Total of 7 regressions
+Total of 7 sub-models
 
 General dominance statistics: Generalized linear models
 Number of obs             =                      69
@@ -561,6 +674,24 @@ rep78 generally dominates headroom
 Important notes about this model is that a `consmodel` is estimated (e.g., `Constant-only Fit Stat.   =                 11.6141`). Like entries in the `all()` model, this value is subtracted from the DA statistics. 
 
 The `consmodel` differs from `all()` in that applies only to the estimation and removal of model _cons_-tants/intercepts; this is useful when the constant-only model is non-zero. This DA also `reverse`s the interpretation of the fit metrics such that smaller values represent more important independent variables (i.e., larger negative values).
+
+Note also that Gamma models can be executed with the _epsilon_ estimator.
+
+```
+. domin price mpg rep78 headroom, reg(glm, family(gamma) link(power -1)) epsilon
+
+General dominance statistics: Epsilon-based glm
+Number of obs             =                      69
+Overall Fit Statistic     =                  0.3157
+
+            |      Dominance      Standardized      Ranking
+ price      |      Stat.          Domin. Stat.
+------------+------------------------------------------------------------------------
+ mpg        |         0.2874      0.9104            1 
+ rep78      |         0.0148      0.0469            2 
+ headroom   |         0.0135      0.0427            3 
+-------------------------------------------------------------------------------------
+```
 
 ## Linear Mixed-effects Regression-based DA
 

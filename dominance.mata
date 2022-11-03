@@ -1,3 +1,5 @@
+*! dominance.mata version 0.0.0  11/3/2022 Joseph N. Luchman
+
 version 12.1
 
 **# Container object for domin specs
@@ -158,19 +160,11 @@ void dominance(struct domin_specs scalar model_specs, pointer scalar model_call)
 
 	standardized = general_dominance:*fitstat^-1 //generate the standardized gen. dom. wgts
 	
-	st_matrix("r(sdomwgts)", standardized) //return the stdzd general dom. wgts as r-class matrix
-	
-	
-	// ~~ fix ranks so not reliant on 'mm_ranks'?
-	
+	st_matrix("r(sdomwgts)", standardized) //return the stdzd general dom. wgts as r-class matrix	
 	
 	st_matrix("r(ranks)", mm_ranks(general_dominance'*-1, 1, 1)') //return the ranks of the general dom. wgts as r-class matrix
 
 	st_numscalar("r(fs)", fitstat) //return overall fit statistic in r-class scalar
-	
-	
-	// ~~ the right weight matrices for conditional dominance have been computed above - need not be repeated below
-	
 	
 	/*compute conditional dominance*/
 	if (strlen(model_specs.cdlcompu) == 0) {
