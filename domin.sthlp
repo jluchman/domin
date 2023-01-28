@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.4.0 November 3, 2022 J. N. Luchman}{...}
+{* *! version 3.4.1 January 27, 2023 J. N. Luchman}{...}
 {cmd:help domin}
 
 {title:Title}

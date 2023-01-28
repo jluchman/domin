@@ -1,4 +1,4 @@
-*! dominance.mata version 0.0.0  11/3/2022 Joseph N. Luchman
+*! dominance.mata version 0.0.1  1/27/2023 Joseph N. Luchman
 
 version 12.1
 
@@ -9,9 +9,7 @@ mata set matastrict on
 
 struct domin_specs {
 	
-	string scalar iv_string, cdlcompu, cptcompu, mi
-	
-	real scalar all_subsets_fitstat, constant_model_fitstat
+	string scalar mi, reg, dv, all, weight, exp, touse, regopts
 	
 }
 
@@ -22,20 +20,29 @@ mata:
 
 mata set matastrict on
 
-void dominance(struct domin_specs scalar model_specs, pointer scalar model_call)
+void dominance(struct domin_specs scalar model_specs, pointer scalar model_call, /// 
+	string scalar cdlcompu, string scalar cptcompu, string scalar iv_string, ///
+	real scalar all_subsets_fitstat, real scalar constant_model_fitstat)
 {
 	/*# object declarations*/
-	real matrix IV_antiindicator_matrix, conditional_dominance, weighted_order_fitstats, weighted_order1less_fitstats, weight_matrix, complete_dominance, select2IVfits, IV_indicator_matrix, sorted_two_IVs, compare_two_IVs
+	real matrix IV_antiindicator_matrix, conditional_dominance, ///
+		weighted_order_fitstats, weighted_order1less_fitstats, ///
+		weight_matrix, complete_dominance, select2IVfits, ///
+		IV_indicator_matrix, sorted_two_IVs, compare_two_IVs
 
 	string matrix IV_name_matrix
 
-	real rowvector fitstat_vector, orders, combin_at_order, combin_at_order_1less, general_dominance, standardized, focal_row_numbers, nonfocal_row_numbers, cpt_desig, indicator_weight, antiindicator_weight
+	real rowvector fitstat_vector, orders, combin_at_order, ///
+		combin_at_order_1less, general_dominance, standardized, ///
+		focal_row_numbers, nonfocal_row_numbers, cpt_desig, ///
+		indicator_weight, antiindicator_weight
 
 	real colvector binary_pattern, cdl3, cpt_setup_vec, select2IVs
 
 	string colvector IVs
 	
-	real scalar number_of_IVs, number_of_regressions, display, fitstat, var1, var2, x, y
+	real scalar number_of_IVs, number_of_regressions, display, fitstat, ///
+		var1, var2, x, y
 
 	string scalar IVs_in_model
 	
@@ -44,7 +51,7 @@ void dominance(struct domin_specs scalar model_specs, pointer scalar model_call)
 	/*parse the predictor inputs*/
 	t = tokeninit(wchars = (" "), pchars = (" "), qchars = ("<>")) //set up parsing rules
 	
-	tokenset(t, model_specs.iv_string) //register the "iv_string" string scalar for parsing/tokenizing
+	tokenset(t, iv_string) //register the "iv_string" string scalar for parsing/tokenizing
 	
 	IVs = tokengetall(t)' //obtain all IV sets and IVs as a vector
 
@@ -127,8 +134,9 @@ void dominance(struct domin_specs scalar model_specs, pointer scalar model_call)
 		}
 	
 		IVs_in_model = invtokens(IV_name_matrix[., x]') //collect a distinct subset of IVs, then collpase names into single string separated by spaces
-	
-		fitstat = (*model_call)(model_specs.mi, IVs_in_model, model_specs.all_subsets_fitstat, model_specs.constant_model_fitstat)
+		
+		fitstat = (*model_call)(IVs_in_model, all_subsets_fitstat, ///
+			constant_model_fitstat, model_specs)  //implement called model - will differ for domin vs. domme
 	
 		fitstat_vector[1, x] = fitstat //add fitstat to vector of fitstats
 
@@ -154,7 +162,7 @@ void dominance(struct domin_specs scalar model_specs, pointer scalar model_call)
 
 	general_dominance = colsum((weight_matrix:*fitstat_vector)') //general dominance weights created by computing product of weights and fitstats and summing for each IV row-wise; in implementing the rows are transposed and column summed so it forms a row vector as will be needed to make it an "e(b)" vector
 
-	fitstat = rowsum(general_dominance) + model_specs.all_subsets_fitstat + model_specs.constant_model_fitstat //total fitstat is then sum of gen. dom. wgts replacing the constant-only model and the "all" subsets stat
+	fitstat = rowsum(general_dominance) + all_subsets_fitstat + constant_model_fitstat //total fitstat is then sum of gen. dom. wgts replacing the constant-only model and the "all" subsets stat
 
 	st_matrix("r(domwgts)", general_dominance) //return the general dom. wgts as r-class matrix
 
@@ -167,7 +175,7 @@ void dominance(struct domin_specs scalar model_specs, pointer scalar model_call)
 	st_numscalar("r(fs)", fitstat) //return overall fit statistic in r-class scalar
 	
 	/*compute conditional dominance*/
-	if (strlen(model_specs.cdlcompu) == 0) {
+	if (strlen(cdlcompu) == 0) {
 	
 		if (number_of_IVs > 5) printf("\n\n{txt}Computing conditional dominance\n")
 	
@@ -189,7 +197,7 @@ void dominance(struct domin_specs scalar model_specs, pointer scalar model_call)
 	}
 	
 	/*compute complete dominance*/
-	if (strlen(model_specs.cptcompu) == 0) {
+	if (strlen(cptcompu) == 0) {
 	
 		if (number_of_IVs > 5) printf("\n{txt}Computing complete dominance\n")
 
@@ -239,21 +247,26 @@ void dominance(struct domin_specs scalar model_specs, pointer scalar model_call)
 
 end
 
-/*Mata function to execute 'domin-flavored' models*/
-version 12
+**# Mata function to execute 'domin-flavored' models
+version 12.1
 
 mata:
 
 	mata set matastrict on
 
-	real scalar domin_call(string scalar mi, string scalar IVs_in_model, real scalar all_subsets_fitstat, real scalar constant_model_fitstat) 
+	real scalar domin_call(string scalar IVs_in_model,  
+		real scalar all_subsets_fitstat, real scalar constant_model_fitstat, ///
+		struct domin_specs scalar model_specs) 
 	{ 
 
 		real scalar fitstat
 
-		if (strlen(mi) == 0) { //if not multiple imputation, then regular regression
+		if (strlen(model_specs.mi) == 0) { //if not multiple imputation, then regular regression
 
-			stata("\`reg' \`dv' \`all' " + IVs_in_model + " [\`weight'\`exp'] if \`touse', \`regopts'", 1) //conduct regression
+			stata(model_specs.reg + " " + model_specs.dv + " " + ///
+				model_specs.all + " " + IVs_in_model + " [" + ///
+				model_specs.weight + model_specs.exp + "] if " + 
+				model_specs.touse + ", " + model_specs.regopts, 1) //conduct regression
 
 			fitstat = st_numscalar(st_local("fitstat")) - all_subsets_fitstat - constant_model_fitstat //record fitstat omitting constant and all subsets values; note that the fitstat to be pulled from Stata is stored as the Stata local "fitstat"
 
@@ -261,7 +274,11 @@ mata:
 
 		else { //otherwise, regression with "mi estimate:"
 
-			stata("mi estimate, saving(\`mifile', replace) \`miopt': \`reg' \`dv' \`all' " + IVs_in_model + " [\`weight'\`exp'] if \`keep', \`regopts'", 1) //conduct regression with "mi estimate:"
+			stata("mi estimate, saving(\`mifile', replace) \`miopt': " + ///
+				model_specs.reg + " " + model_specs.dv + " " + ///
+				model_specs.all + " " + IVs_in_model + " [" + ///
+				model_specs.weight + model_specs.exp + "] if " + 
+				model_specs.touse + ", " + model_specs.regopts, 1) //conduct regression with "mi estimate:"
 
 			stata("mi_dom, name(\`mifile') fitstat(\`fitstat') list(\`=e(m_est_mi)')", 1) //use built-in program to obtain average fitstat across imputations
 
@@ -275,7 +292,7 @@ mata:
 	
 end
 
-/*Mata function to execute epsilon-based relative importance*/
+**# Mata function to execute epsilon-based relative importance
 version 12.1
 
 mata: 
