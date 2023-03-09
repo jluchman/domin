@@ -1,4 +1,6 @@
-*! domin version 3.4.1  1/27/2023 Joseph N. Luchman
+*! domin version 3.4.2  3/7/2023 Joseph N. Luchman
+
+quietly include dominance.mata, adopath
 
 program define domin, eclass //history and version information at end of file
 
@@ -746,4 +748,6 @@ end
 	- increase flexibility to work with -domme-; 3.4.0 makes assumptions -domme- cannot meet
 	- does not force arguments but accepts single objects for command-specific needs 
 	- records domin options directly (doesn't call them as local macros)
+ // 3.4.2 - March 7, 2023
+ - call 'dominance.mata' as opposed to using 'lb_dominance.mlib' to allow backward compatability
  */
