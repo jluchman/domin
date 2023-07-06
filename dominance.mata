@@ -10,7 +10,7 @@ mata set matastrict on
 void dominance( /*struct domin_specs scalar model_specs, */
 	class AssociativeArray scalar model_specs, pointer scalar model_call, 
 	string colvector IVs,
-	string scalar gencompu, string scalar cdlcompu, string scalar cptcompu) {
+	string scalar cdlcompu, string scalar cptcompu) {
 		
 	/*# object declarations*/
 	real matrix IV_antiindicator_matrix, conditional_dominance, 

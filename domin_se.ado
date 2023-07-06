@@ -5,48 +5,91 @@ program define domin_se, eclass
 
 version 17
 
-if replay() {
-
-	if ("`e(cmd)'" != "domin") error 301
-	
-	if _by() error 190
-	
-	Display `0'
-	
-	exit 0
-	
-}
-
 **# Program definition and argument checks
 syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , [Reg(string) Fitstat(string) Sets(string) ///
 	All(varlist fv ts) noGENeral noCONditional noCOMplete EPSilon CONSmodel REVerse] // remove direct mi support - make it into a wrapper
 
 **# Wrapper process for -domin- processing in Mata
-mata: domin_se_2mata("`reg'", "`fitstat'", /*, "`sets'", "`all'", ///
-	"`general'", "`conditional'", "`complete'", "`epsilon'", ///
-	"`consmodel'", "`reverse'", ///
-	"`weight'`exp'", "`in' `if'",*/ "`varlist'")
+mata: domin_se_2mata("`reg'", "`fitstat'", /// "`sets'", "`all'", "`conditional'", "`complete'", "`epsilon'", "`consmodel'", "`reverse'", 
+	"`weight'`exp'", "`in' `if'", "`varlist'")
 		
-/*return values*/
+**# Ereturn processing
 tempname domwgts cdldom cptdom stdzd ranks
 
 matrix `domwgts' = r(domwgts)
-ereturn post `domwgts' //[`weight'`exp'], depname(`dv') obs(`=`obs'') esample(`touse')
+ereturn post `domwgts' [`weight'`exp'], depname(`dv') obs(`=`r(N)'') esample(`touse')
+
+**# Ereturn scalars
+ereturn scalar N = `=r(N)'
 
 matrix `domwgts' = r(domwgts)*J(colsof(r(domwgts)), 1, 1)
 ereturn scalar fitstat_o = `=`domwgts'[1,1]'
 
-matrix `cdldom' = r(cdldom)
-ereturn matrix cdldom = `cdldom'
+ereturn hidden scalar setcnt = 0
 
+**# Ereturn macros
+/*if !strlen("`epsilon'") & strlen("`e(title)'") local title "`e(title)'"
+
+else if strlen("`epsilon'") & strlen("`e(title)'") local title "Epsilon-based `reg'"
+
+else local title "Custom user analysis"
+
+if strlen("`setcnt'") {
+
+	ereturn hidden scalar setcnt = `setcnt'
+
+	forvalues x = 1/`setcnt' {
+	
+		fvunab set`x': `set`x''
+
+		ereturn local set`x' "`set`x''"
+		
+	}
+	
+}
+
+else ereturn hidden scalar setcnt = 0*/
+
+ereturn hidden local dtitle "`title'"
+
+ereturn hidden local reverse "`reverse'"
+/*
+if `:list sizeof all' {
+
+	fvunab all: `all'
+
+	ereturn local all "`all'"
+	
+}
+*/
+if strlen("`epsilon'") ereturn local estimate "epsilon" 
+
+else ereturn local estimate "dominance"
+
+if strlen("`regopts'") ereturn local regopts `"`regopts'"'
+
+ereturn local reg `"`reg'"'
+
+ereturn local fitstat "`fitstat'"
+
+ereturn local cmd `"domin"'
+
+ereturn local title `"Dominance analysis"'
+
+ereturn local cmdline `"domin `0'"'
+
+**# Ereturn matrices
 matrix `cptdom' =  r(cptdom)
 ereturn matrix cptdom = `cptdom'
 
-matrix `stdzd' =  r(stdzd)
-ereturn matrix std = `stdzd'
+matrix `cdldom' = r(cdldom)
+ereturn matrix cdldom = `cdldom'
 
 matrix `ranks' =  r(ranks)
 ereturn matrix ranking = `ranks'
+
+matrix `stdzd' =  r(stdzd)
+ereturn matrix std = `stdzd'
 
 end
 
@@ -170,29 +213,6 @@ if !strlen("`complete'") ereturn matrix cptdom `cptdom'
 ereturn matrix ranking `ranks'
 
 ereturn matrix std `sdomwgts'
-
-/*program to average fitstat across all multiple imputations for use in domin*/
-program define mi_dom, rclass
-
-version 12.1
-
-syntax, name(string) fitstat(string) list(numlist)
-
-tempname passstat
-
-scalar `passstat' = 0 //placeholder scalar to hold the sum
-
-foreach x of numlist `list' {
-
-	estimates use `name', number(`x') //find the focal estimates
-	
-	scalar `passstat' = `passstat' + `fitstat'*`:list sizeof list'^-1 //add in the weighted fitstat value
-
-}
-
-return scalar passstat = `passstat' //average fitstat = the MI'd fitstat
-
-end
 */
 
 **# mata!
@@ -209,14 +229,13 @@ void domin_se_2mata(
 	string scalar fitstat, 
 	/*string scalar sets, 
 	string scalar all, 
-	string scalar general,
 	string scalar conditional, 
 	string scalar complete, 
 	string scalar epsilon, 
 	string scalar consmodel, 
-	string scalar reverse,
+	string scalar reverse,*/
 	string scalar weight,
-	string scalar inif, */
+	string scalar inif, 
 	string scalar varlist
 	) {
 	
@@ -227,16 +246,11 @@ void domin_se_2mata(
 	
 	real scalar rc, full_fitstat, obs, all_fitstat, cons_fitstat
 	
-	string scalar regopts, dv
+	string scalar regopts, dv, marks
 	
-	string rowvector ivs, iv_sets, marks
+	string rowvector ivs, iv_sets
 	
-	transmorphic parser
-	
-/* ~ check for moremata ~ */
-
-	/*  TBI  */
-	
+	transmorphic parser	
 	
 /* ~ argument checks ~ */
 	/*reg() defaults to 'regress'*/
@@ -259,7 +273,7 @@ void domin_se_2mata(
 	if ( strlen(epsilon) ) {
 		
 		/*exit conditions: user must restructure*/
-		if ( strlen(all + sets + mi + weight) ) { 								// <- note to self: consider adding weights for 'epsilon'
+		if ( strlen(all + sets + weight) ) { 									// <- note to self: consider adding weights for 'epsilon'
 			
 			stata("display " + char(34) + "{err}{opt epsilon} not allowed with" + 
 					" {opt all()}, {opt sets()}, {opt mi}, or {opt weight}s." + 
@@ -279,9 +293,8 @@ void domin_se_2mata(
 	dv = ivs[1]
 	
 	/*remaining entries, if any, are 'ivs'*/
-	if ( length(ivs) ) ivs = ivs[2..length(ivs)]								
+	if ( length(ivs) ) ivs = ivs[2..length(ivs)]							
 	else ivs = ""
-	(dv, ivs) // ~~
 	/*
 	/*set processing*/
 	if ( strlen(sets) ) {
@@ -317,58 +330,57 @@ void domin_se_2mata(
 	
 	if ( length(tokenrest(parser)) ) regopts = substr(tokenrest(parser), 2)
 	else regopts = ""
-	(reg, regopts) // ~~
-	/*
-/* ~ sample markouts ~ */
-	marks = st_tempname(2)
-
-	stata("mark " + marks[1])
 	
-	if ( strlen(inif) ) stata("generate byte " + marks[2] + " = 1 " + inif, 1)
-	
-	stata("markout " + marks[1] + " " + dv + " " + invtokens(ivs) + " " + all + " " + marks[2])
-	
-/* ~ check primary analysis ~ */
-	if ( !strlen(epsilon) ) {
-
-		if ( !strlen(mi) ) 
-			rc = _stata(reg + " " + dv + " " + invtokens(ivs) + " " + all +  
-				" [" + weight + "] if " + marks[1] + 
-				", " + regopts, 1)
-		else {
-
-			rc = _stata("mi estimate, saving(" + mifile + ") " + 
-				miopt + ":" + reg + " " + dv + " " + invtokens(ivs) + " " + all +  
-				" [" + weight + "] if " + marks[1] + 
-				", " + regopts, 1) 
-			
-			if ( !rc ) stata("estimates use " + mifile + ", number(`:word 1 of `e(m_est_mi)''")	
+/* ~ check primary analysis and set estimation sample ~ */
+	//if ( !strlen(epsilon) ) {
 		
-		}
+		st_eclear()
+
+		rc = _stata(reg + " " + dv + " " + invtokens(ivs) + " " + /*all +  */
+			" [" + weight + "] " + inif + ", " + regopts, 1)
 		
 		if ( rc ) {
 			
-			stata( "display " + char(34) + "{err}{cmd:" + reg + "} resulted in an error." + 
-				char(34) )
+			display("{err}{cmd:" + reg + "} resulted in an error.")
 			exit(rc)
 
 		}
 		
 		if ( !length( st_numscalar( strtrim(fitstat) ) ) )	{
 		
-			stata( "display " + char(34) + "{err}{cmd:" + fitstat + 
+			display("{err}{cmd:" + fitstat + 
 				"} not returned by {cmd:" + reg + "} or {cmd:" + fitstat + 
-				"} is not scalar valued. See {help return list}." + 
-				char(34) )
+				"} is not scalar valued. See {help return list}.")
 			exit(198)
 
 		}
-		else full_fitstat = st_numscalar( strtrim(fitstat) ) 
+		else full_fitstat = st_numscalar( strtrim(fitstat) ) // note to self - add this to passed values to dominance()
+		
+		marks = st_tempname()
+		
+		stata("generate byte " + marks[1] + " = e(sample)", 1)
+		
+		stata("count if " + marks[1], 1)
+		
+		obs = st_numscalar("r(N)")
+		
+		// if obs == 0 error out here unless noesampleok is selected in which case do the below - also do below for epsilon
 	
-	}
-	
-	obs = st_numscalar("e(N)")													// <- note to self; determine if vsn <4 code that counts obs is necessary here
-	
+	//}
+	/*marks = st_tempname(2)
+
+	stata("mark " + marks[1]) // <- note this change to N counting behavior
+		
+	stata("generate byte " + marks[2] + " " + inif, 1)
+		
+	stata("markout " + marks[1] + " " + marks[2] + 
+		" " + invtokens(ivs) + " " /*+ all*/, 1)
+		
+	stata("count if " + marks[1] )
+		
+	obs = st_numscalar("r(N)")
+	*/
+	/*	
 /* ~ begin collecting effect sizes ~ */
 	all_fitstat = 0	
 	
@@ -408,33 +420,11 @@ void domin_se_2mata(
 	}
 	else {
 		
-		/*model_specs.reg = reg
-		model_specs.fitstat = fitstat
-		model_specs.weight = weight
-		model_specs.touse = marks[1]
-		model_specs.regopts = regopts
-		
-		model_specs.all = all
-		model_specs.dv = dv
-		
-		model_specs.epsilon = epsilon
-		model_specs.consmodel = consmodel
-		model_specs.reverse = reverse
-		
-		model_specs.mi = mi
-		model_specs.miopts = miopts
-		model_specs.mifile = mifile
-		
-		model_specs.all_fitstat = all_fitstat
-		model_specs.cons_fitstat = cons_fitstat
-		
-		model_specs.ivs = ivs
-		*/
 		*/
 		model_specs.put("reg", reg)
 		model_specs.put("fitstat", fitstat)
-		/*model_specs.put("weight", weight)
-		model_specs.put("touse", marks[1])*/
+		model_specs.put("weight", weight)
+		model_specs.put("touse", marks[1])
 		model_specs.put("regopts", regopts)
 		
 		/*model_specs.put("all", all)*/
@@ -449,17 +439,18 @@ void domin_se_2mata(
 		*/
 		model_specs.put("ivs", ivs) // <-- need?
 		
-		model_specs.keys() // ~~
-		
 		dominance(
 			model_specs, &domin_call(), 
-			ivs', "", "", "") /*,
-			general, conditional, complete ) */
+			ivs', "", "") /*,
+			conditional, complete ) */
 			
-			
-		st_matrix("r(domwgts)") // ~~
-		
+
 		st_matrixcolstripe("r(domwgts)", (J(length(ivs), 1, ""), ivs') )
+		
+		st_matrixrowstripe("r(cdldom)", (J(length(ivs), 1, ""), ivs') )
+		
+		st_matrixrowstripe("r(cptdom)", (J(length(ivs), 1, ""), ivs') )
+		st_matrixcolstripe("r(cptdom)", (J(length(ivs), 1, ""), ivs') )
 		
 	/*}*/
 	
@@ -467,9 +458,18 @@ void domin_se_2mata(
 			
 		st_matrix("r(stdzd)", 
 			(st_matrix("r(domwgts)")):/(sum(st_matrix("r(domwgts)") ) ) ) 
+		st_matrixcolstripe("r(stdzd)", (J(length(ivs), 1, ""), ivs') )
 			
 		st_matrix("r(ranks)", 
 			(mm_ranks( (st_matrix("r(domwgts)")'):*-1, 1, 1)') )
+		st_matrixcolstripe("r(ranks)", (J(length(ivs), 1, ""), ivs') )
+		
+		st_numscalar("r(N)", obs)
+		
+		st_local("reg", reg)
+		st_local("regopts", regopts)
+		st_local("touse", marks[1])
+		st_local("dv", dv)
 	
 	//}
 	
@@ -490,57 +490,11 @@ mata:
 		real scalar fitstat
 
 		stata(model_specs.get("reg") + " " + model_specs.get("dv") + " " + 
-			/*model_specs.all + " " +*/ IVs_in_model + /*" [" + 
-			model_specs.weight + "] if " + 
-			model_specs.touse + */ ", " + model_specs.get("regopts"), 1) //conduct regression
+			/*model_specs.all + " " +*/ IVs_in_model + " [" + 
+			model_specs.get("weight") + "] if " + 
+			model_specs.get("touse") + ", " + model_specs.get("regopts"), 1) //conduct regression
 
 		fitstat = st_numscalar(model_specs.get("fitstat")) /*- model_specs.all_fitstat - model_specs.cons_fitstat*/ //record fitstat omitting constant and all subsets values; note that the fitstat to be pulled from Stata is stored as the Stata local "fitstat"
-
-		return(fitstat)
-
-	}
-	
-end
-/*
-**# Mata function to execute 'domin-flavored' models
-version 17
-
-mata:
-
-	mata set matastrict on
-
-	real scalar domin_call(string scalar IVs_in_model,
-		struct domin_se_specs scalar model_specs)  
-	{ 
-
-		real scalar fitstat
-
-		if (strlen(model_specs.mi) == 0) { //if not multiple imputation, then regular regression
-
-			stata(model_specs.reg + " " + model_specs.dv + " " + ///
-				model_specs.all + " " + IVs_in_model + " [" + ///
-				model_specs.weight + "] if " + 
-				model_specs.touse + ", " + model_specs.regopts, 1) //conduct regression
-
-			fitstat = st_numscalar(model_specs.fitstat) - model_specs.all_fitstat - model_specs.cons_fitstat //record fitstat omitting constant and all subsets values; note that the fitstat to be pulled from Stata is stored as the Stata local "fitstat"
-
-		}
-
-		else { //otherwise, regression with "mi estimate:"
-
-			stata("mi estimate, saving(" + 
-				model_specs.mifile + ", replace) " + model_specs.miopts + ": " + 
-				model_specs.reg + " " + model_specs.dv + " " + ///
-				model_specs.all + " " + IVs_in_model + " [" + ///
-				model_specs.weight + "] if " + 
-				model_specs.touse + ", " + model_specs.regopts, 1) //conduct regression with "mi estimate:"
-
-			stata("mi_dom, name(" + model_specs.mifile + 
-				") fitstat(" model_specs.fitstat + ") list(\`=e(m_est_mi)')", 1) //use built-in program to obtain average fitstat across imputations
-
-			fitstat = st_numscalar("r(passstat)") - model_specs.all_fitstat - model_specs.cons_fitstat //record fitstat omitting constant and "all" subsets values with "mi estimate:"
-
-		}
 
 		return(fitstat)
 

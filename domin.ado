@@ -49,7 +49,7 @@ if "`subcommand'" == "me"  display "ho" //domin_me `0'
 
 if "`subcommand'" == "se" domin_se `0'
 
-else domin_se `subcommand' `0'
+else domin_se `subcommand'`0'
 
 Display
 
@@ -124,7 +124,7 @@ if `cpttest' {
 	
 }
 
-if e(estimate) == "dominance" & `=`cpttest'*`cdltest'' {
+if  1 { //e(estimate) == "dominance" & `=`cpttest'*`cdltest'' {
 
 	display _newline "{res}Strongest dominance designations" _newline 
 
