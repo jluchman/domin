@@ -7,7 +7,7 @@ mata:
 
 mata set matastrict on
 
-void dominance( /*struct domin_specs scalar model_specs, */
+void dominance(
 	class AssociativeArray scalar model_specs, pointer scalar model_call, 
 	string colvector IVs,
 	string scalar cdlcompu, string scalar cptcompu) {
@@ -304,8 +304,6 @@ void eps_ri(string scalar varlist, string scalar reg, string scalar touse, strin
 	Lm = Lm:^2 //square values of orthogonalized predictors
 
 	st_matrix("r(domwgts)", (Lm*Bt)')	//produce proportion of variance explained and put into Stata
-	
-	st_numscalar("r(fs)", sum(Lm*Bt))	//sum relative weights to obtain R2
 	
 }
 

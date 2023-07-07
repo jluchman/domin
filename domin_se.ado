@@ -7,14 +7,27 @@ version 17
 
 **# Program definition and argument checks
 syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , [Reg(string) Fitstat(string) Sets(string) ///
-	All(varlist fv ts) noGENeral noCONditional noCOMplete EPSilon CONSmodel REVerse] // remove direct mi support - make it into a wrapper
+	All(varlist fv ts) noGENeral noCONditional noCOMplete EPSilon CONSmodel REVerse noESAMPleok] // remove direct mi support - make it into a wrapper
+	
+if strlen("`epsilon'") {
+	local esampleok "esampleok"
+	local conditional "conditional"
+	local complete "complete"
+}
 
 **# Wrapper process for -domin- processing in Mata
-mata: domin_se_2mata("`reg'", "`fitstat'", /// "`sets'", "`all'", "`conditional'", "`complete'", "`epsilon'", "`consmodel'", "`reverse'", 
-	"`weight'`exp'", "`in' `if'", "`varlist'")
+mata: domin_se_2mata("`reg'", "`fitstat'", /// "`sets'", "`all'",*/ 
+	"`conditional'", "`complete'", "`epsilon'", ///"`consmodel'", "`reverse'", 
+	"`esampleok'", "`weight'`exp'", "`in' `if'", "`varlist'")
 		
 **# Ereturn processing
 tempname domwgts cdldom cptdom stdzd ranks
+
+if !strlen("`epsilon'") & strlen("`e(title)'") local title "`e(title)'"
+
+else if strlen("`epsilon'") & strlen("`e(title)'") local title "Epsilon-based `reg'"
+
+else local title "Custom user analysis"
 
 matrix `domwgts' = r(domwgts)
 ereturn post `domwgts' [`weight'`exp'], depname(`dv') obs(`=`r(N)'') esample(`touse')
@@ -25,15 +38,7 @@ ereturn scalar N = `=r(N)'
 matrix `domwgts' = r(domwgts)*J(colsof(r(domwgts)), 1, 1)
 ereturn scalar fitstat_o = `=`domwgts'[1,1]'
 
-ereturn hidden scalar setcnt = 0
-
-**# Ereturn macros
-/*if !strlen("`epsilon'") & strlen("`e(title)'") local title "`e(title)'"
-
-else if strlen("`epsilon'") & strlen("`e(title)'") local title "Epsilon-based `reg'"
-
-else local title "Custom user analysis"
-
+/*
 if strlen("`setcnt'") {
 
 	ereturn hidden scalar setcnt = `setcnt'
@@ -46,14 +51,15 @@ if strlen("`setcnt'") {
 		
 	}
 	
-}
+}*/
 
-else ereturn hidden scalar setcnt = 0*/
+/*else*/ ereturn hidden scalar setcnt = 0
 
+**# Ereturn macros
 ereturn hidden local dtitle "`title'"
-
-ereturn hidden local reverse "`reverse'"
 /*
+ereturn hidden local reverse "`reverse'"
+
 if `:list sizeof all' {
 
 	fvunab all: `all'
@@ -79,11 +85,15 @@ ereturn local title `"Dominance analysis"'
 ereturn local cmdline `"domin `0'"'
 
 **# Ereturn matrices
-matrix `cptdom' =  r(cptdom)
-ereturn matrix cptdom = `cptdom'
+if !strlen("`complete'") {
+	matrix `cptdom' =  r(cptdom)
+	ereturn matrix cptdom = `cptdom'
+}
 
-matrix `cdldom' = r(cdldom)
-ereturn matrix cdldom = `cdldom'
+if !strlen("`conditional'") {
+	matrix `cdldom' = r(cdldom)
+	ereturn matrix cdldom = `cdldom'
+}
 
 matrix `ranks' =  r(ranks)
 ereturn matrix ranking = `ranks'
@@ -180,14 +190,6 @@ if strlen("`epsilon'") ereturn local estimate "epsilon"
 
 else ereturn local estimate "dominance"
 
-if strlen("`mi'") {
-
-	if strlen("`miopt'") ereturn local miopt "`miopt'"
-
-	ereturn local mi "mi"
-
-}
-
 if strlen("`regopts'") ereturn local regopts `"`regopts'"'
 
 ereturn local reg `"`reg'"'
@@ -228,12 +230,13 @@ void domin_se_2mata(
 	string scalar reg, 
 	string scalar fitstat, 
 	/*string scalar sets, 
-	string scalar all, 
+	string scalar all, */
 	string scalar conditional, 
-	string scalar complete, 
+	string scalar complete,
 	string scalar epsilon, 
-	string scalar consmodel, 
+	/*string scalar consmodel, 
 	string scalar reverse,*/
+	string scalar esampleok,
 	string scalar weight,
 	string scalar inif, 
 	string scalar varlist
@@ -253,38 +256,29 @@ void domin_se_2mata(
 	transmorphic parser	
 	
 /* ~ argument checks ~ */
-	/*reg() defaults to 'regress'*/
-/*	if ( !strlen(reg) ) reg = "regress"
-	
-	/*fitstat() defaults to 'e(r2)'*/
-	if ( !strlen(fitstat) ) fitstat = "e(r2)" 
-	
-	/*must allow for at least one type of dominance*/
-	if ( strlen(general) & strlen(conditional) & strlen(complete) ) {
+	/*-domin- defaults*/
+	if ( !strlen(reg) & !strlen(fitstat) ) {
 		
-		stata("display " + char(34) + "{err}{opt nogeneral}, {opt noconditional}, " + 
-			"and {opt nocomplete}, cannot all be used simultaneously." + 
-			char(34) )
-				
-			exit(198) 
+		reg = "regress"
+		
+		fitstat = "e(r2)" 
+		
 	}
-
+	
 	/*'epsilon' specifics*/
 	if ( strlen(epsilon) ) {
 		
 		/*exit conditions: user must restructure*/
-		if ( strlen(all + sets + weight) ) { 									// <- note to self: consider adding weights for 'epsilon'
+		if ( strlen(/*all + sets +*/ weight) ) { 									// <- note to self: consider adding weights for 'epsilon'
 			
-			stata("display " + char(34) + "{err}{opt epsilon} not allowed with" + 
-					" {opt all()}, {opt sets()}, {opt mi}, or {opt weight}s." + 
-					char(34) )
-				
+			display("{err}{opt epsilon} not allowed with" + 
+					" {opt all()}, {opt sets()}, or {opt weight}s.")
 			exit(198) 															// <- note to self: document change to epsilon's error behavior ~~ 
 				
 		}
 		
 	}	
-	*/
+	
 /* ~ process iv and sets ~ */
 	/*parse varlist - store as 'ivs'*/
 	ivs = tokens(varlist)
@@ -332,7 +326,7 @@ void domin_se_2mata(
 	else regopts = ""
 	
 /* ~ check primary analysis and set estimation sample ~ */
-	//if ( !strlen(epsilon) ) {
+	if ( !strlen(epsilon) ) {
 		
 		st_eclear()
 
@@ -363,23 +357,34 @@ void domin_se_2mata(
 		stata("count if " + marks[1], 1)
 		
 		obs = st_numscalar("r(N)")
-		
-		// if obs == 0 error out here unless noesampleok is selected in which case do the below - also do below for epsilon
 	
-	//}
-	/*marks = st_tempname(2)
+	}
+	else obs = 0
 
-	stata("mark " + marks[1]) // <- note this change to N counting behavior
+	if (obs == 0 & strlen(esampleok) ) 	{
+	
+		marks = st_tempname(2)
+
+		stata("mark " + marks[1]) 
 		
-	stata("generate byte " + marks[2] + " " + inif, 1)
+		stata("generate byte " + marks[2] + " = 1 " + inif, 1)
+			
+		stata("markout " + marks[1] + " " + marks[2] + 
+			" " + invtokens(ivs) + " " /*+ all*/, 1)
+			
+		stata("count if " + marks[1], 1)
+			
+		obs = st_numscalar("r(N)")
+	
+	}
+	
+	if (obs == 0 & !strlen(esampleok)) {
 		
-	stata("markout " + marks[1] + " " + marks[2] + 
-		" " + invtokens(ivs) + " " /*+ all*/, 1)
-		
-	stata("count if " + marks[1] )
-		
-	obs = st_numscalar("r(N)")
-	*/
+		display("{err}{cmd:esample()} not set. Use {opt noesampleok} to avoid checking {cmd:esample()}.")
+		exit(198)
+	}
+	
+
 	/*	
 /* ~ begin collecting effect sizes ~ */
 	all_fitstat = 0	
@@ -408,19 +413,19 @@ void domin_se_2mata(
 	}
 	
 	if ( strlen(all) ) all_fitstat = all_fitstat - cons_fitstat
+	*/
 	
 /* ~ invoke dominance ~ */	
 	if ( strlen(epsilon) ) {
 
 		if (reg == "mvdom") 
-			stata("mvdom " + dv + invtokens(ivs) + " if " + 
-				marks[1] + ", " + regopts + " epsilon", 1)
-		else eps_ri(dv + " " + ivs, reg, marks[1], regopts) 
+			stata("mvdom " + dv + " " + invtokens(ivs) + " if " + 
+				marks[1] + ", " + regopts + " epsilon", 0)
+		else eps_ri(dv + " " + invtokens(ivs), reg, marks[1], regopts) 
 		
 	}
 	else {
 		
-		*/
 		model_specs.put("reg", reg)
 		model_specs.put("fitstat", fitstat)
 		model_specs.put("weight", weight)
@@ -430,48 +435,42 @@ void domin_se_2mata(
 		/*model_specs.put("all", all)*/
 		model_specs.put("dv", dv)
 		
-		/*model_specs.put("epsilon", epsilon)
-		model_specs.put("consmodel", consmodel)
+		/*model_specs.put("consmodel", consmodel)
 		model_specs.put("reverse", reverse)
 		
 		model_specs.put("all_fitstat" all_fitstat)
 		model_specs.put("cons_fitstat", cons_fitstat)
 		*/
-		model_specs.put("ivs", ivs) // <-- need?
 		
 		dominance(
 			model_specs, &domin_call(), 
-			ivs', "", "") /*,
-			conditional, complete ) */
+			ivs', conditional, complete )
 			
+	}
 
-		st_matrixcolstripe("r(domwgts)", (J(length(ivs), 1, ""), ivs') )
-		
-		st_matrixrowstripe("r(cdldom)", (J(length(ivs), 1, ""), ivs') )
-		
+	st_matrixcolstripe("r(domwgts)", (J(length(ivs), 1, ""), ivs') )
+	
+	if ( !strlen(conditional) ) st_matrixrowstripe("r(cdldom)", (J(length(ivs), 1, ""), ivs') )
+	
+	if ( !strlen(complete) ) {
 		st_matrixrowstripe("r(cptdom)", (J(length(ivs), 1, ""), ivs') )
 		st_matrixcolstripe("r(cptdom)", (J(length(ivs), 1, ""), ivs') )
-		
-	/*}*/
-	
-	//if ( ( strlen(general) & !strlen(epsilon) ) | strlen(epsilon) ) {
+	}
 			
-		st_matrix("r(stdzd)", 
-			(st_matrix("r(domwgts)")):/(sum(st_matrix("r(domwgts)") ) ) ) 
-		st_matrixcolstripe("r(stdzd)", (J(length(ivs), 1, ""), ivs') )
+	st_matrix("r(stdzd)", 
+		(st_matrix("r(domwgts)")):/(sum(st_matrix("r(domwgts)") ) ) ) 
+	st_matrixcolstripe("r(stdzd)", (J(length(ivs), 1, ""), ivs') )
 			
-		st_matrix("r(ranks)", 
-			(mm_ranks( (st_matrix("r(domwgts)")'):*-1, 1, 1)') )
-		st_matrixcolstripe("r(ranks)", (J(length(ivs), 1, ""), ivs') )
+	st_matrix("r(ranks)", 
+		(mm_ranks( (st_matrix("r(domwgts)")'):*-1, 1, 1)') )
+	st_matrixcolstripe("r(ranks)", (J(length(ivs), 1, ""), ivs') )
 		
-		st_numscalar("r(N)", obs)
+	st_numscalar("r(N)", obs)
 		
-		st_local("reg", reg)
-		st_local("regopts", regopts)
-		st_local("touse", marks[1])
-		st_local("dv", dv)
-	
-	//}
+	st_local("reg", reg)
+	st_local("regopts", regopts)
+	st_local("touse", marks[1])
+	st_local("dv", dv)
 	
 }
 

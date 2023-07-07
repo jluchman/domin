@@ -124,7 +124,7 @@ if `cpttest' {
 	
 }
 
-if  1 { //e(estimate) == "dominance" & `=`cpttest'*`cdltest'' {
+if e(estimate) == "dominance" & `=`cpttest'*`cdltest'' {
 
 	display _newline "{res}Strongest dominance designations" _newline 
 
