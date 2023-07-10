@@ -16,7 +16,7 @@ if strlen("`epsilon'") {
 }
 
 **# Wrapper process for -domin- processing in Mata
-mata: domin_se_2mata("`reg'", "`fitstat'", /// "`sets'", "`all'",*/ 
+mata: domin_se_2mata("`reg'", "`fitstat'", "`sets'", /// "`all'",
 	"`conditional'", "`complete'", "`epsilon'", ///"`consmodel'", "`reverse'", 
 	"`esampleok'", "`weight'`exp'", "`in' `if'", "`varlist'")
 		
@@ -38,7 +38,6 @@ ereturn scalar N = `=r(N)'
 matrix `domwgts' = r(domwgts)*J(colsof(r(domwgts)), 1, 1)
 ereturn scalar fitstat_o = `=`domwgts'[1,1]'
 
-/*
 if strlen("`setcnt'") {
 
 	ereturn hidden scalar setcnt = `setcnt'
@@ -51,9 +50,9 @@ if strlen("`setcnt'") {
 		
 	}
 	
-}*/
+}
 
-/*else*/ ereturn hidden scalar setcnt = 0
+else ereturn hidden scalar setcnt = 0
 
 **# Ereturn macros
 ereturn hidden local dtitle "`title'"
@@ -229,8 +228,8 @@ mata set matastrict on
 void domin_se_2mata(
 	string scalar reg, 
 	string scalar fitstat, 
-	/*string scalar sets, 
-	string scalar all, */
+	string scalar sets, 
+	/*string scalar all, */
 	string scalar conditional, 
 	string scalar complete,
 	string scalar epsilon, 
@@ -247,7 +246,7 @@ void domin_se_2mata(
 	//struct domin_se_specs scalar model_specs
 	class AssociativeArray scalar model_specs
 	
-	real scalar rc, full_fitstat, obs, all_fitstat, cons_fitstat
+	real scalar set, rc, full_fitstat, obs, all_fitstat, cons_fitstat
 	
 	string scalar regopts, dv, marks
 	
@@ -289,7 +288,7 @@ void domin_se_2mata(
 	/*remaining entries, if any, are 'ivs'*/
 	if ( length(ivs) ) ivs = ivs[2..length(ivs)]							
 	else ivs = ""
-	/*
+	
 	/*set processing*/
 	if ( strlen(sets) ) {
 		/*setup parsing sets -  bind on parentheses*/
@@ -299,6 +298,10 @@ void domin_se_2mata(
 		/*get all sets and remove parentehses*/
 		iv_sets = tokengetall(t)
 		iv_sets = substr(iv_sets, 2, strlen(iv_sets):-2)
+		st_local("setcnt", strofreal( length(iv_sets) ) )
+		for (set=1; set<=length(iv_sets); set++) {
+			st_local("set"+strofreal(set), iv_sets[set] )
+		}
 		
 		/*combine to single iv vector*/
 		if ( length(ivs) > 1 ) ivs = (ivs, iv_sets)
@@ -314,7 +317,7 @@ void domin_se_2mata(
 		exit(198)
 		
 	}
-*/
+
 /* ~ parse regression options ~ */
 	parser = tokeninit(" ", ",")
 	
@@ -444,10 +447,14 @@ void domin_se_2mata(
 		
 		dominance(
 			model_specs, &domin_call(), 
-			ivs', conditional, complete )
+			ivs', conditional, complete, full_fitstat )
 			
 	}
-
+	
+	if ( length(iv_sets) )
+		ivs[(( length(ivs)-length(iv_sets)+1 )..length(ivs))] = 
+			"set":+( strofreal( (1..length(iv_sets)) ) )
+	
 	st_matrixcolstripe("r(domwgts)", (J(length(ivs), 1, ""), ivs') )
 	
 	if ( !strlen(conditional) ) st_matrixrowstripe("r(cdldom)", (J(length(ivs), 1, ""), ivs') )

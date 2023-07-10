@@ -10,7 +10,8 @@ mata set matastrict on
 void dominance(
 	class AssociativeArray scalar model_specs, pointer scalar model_call, 
 	string colvector IVs,
-	string scalar cdlcompu, string scalar cptcompu) {
+	string scalar cdlcompu, string scalar cptcompu, 
+	real scalar full_fitstat) {
 		
 	/*# object declarations*/
 	real matrix IV_antiindicator_matrix, conditional_dominance, 
@@ -83,11 +84,11 @@ void dominance(
 
 	fitstat_vector = J(1, cols(IV_indicator_matrix), .) //pre-allocate container vector that will contain fitstats across all models
 	
-	for (x = 1; x <= number_of_regressions; x++) { //loop to obtain all possible regression subsets
+	for (x = 2; x <= number_of_regressions; x++) { //loop to obtain all possible regression subsets
 	
 		if (number_of_IVs > 4) {
 	
-			if (floor(x/number_of_regressions*20) > display) {
+			if (floor(x/(number_of_regressions-1)*20) > display) {
 			
 				printf(".")
 				
@@ -103,9 +104,11 @@ void dominance(
 		
 		fitstat = (*model_call)(IVs_in_model, model_specs)  //implement called model - will differ for domin vs. domme
 	
-		fitstat_vector[1, x] = fitstat //add fitstat to vector of fitstats
+		fitstat_vector[x] = fitstat //add fitstat to vector of fitstats
 
 	}
+	
+	fitstat_vector[1] = full_fitstat
 
 	/*define the incremental prediction matrices and combination rules*/
 	IV_antiindicator_matrix = (IV_indicator_matrix:-1) //matrix flagging which IVs are not included in each model and setting them up for a subtractive effect
