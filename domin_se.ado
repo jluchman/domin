@@ -6,7 +6,7 @@ program define domin_se, eclass
 version 17
 
 **# Program definition and argument checks
-syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , [Reg(string) Fitstat(string) Sets(string) ///
+syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , [Reg(string) Fitstat(string) Sets(string) /// <- do checks on sets to be varlist?
 	All(varlist fv ts) noGENeral noCONditional noCOMplete EPSilon CONSmodel REVerse noESAMPleok] // remove direct mi support - make it into a wrapper
 	
 if strlen("`epsilon'") {
@@ -16,7 +16,7 @@ if strlen("`epsilon'") {
 }
 
 **# Wrapper process for -domin- processing in Mata
-mata: domin_se_2mata("`reg'", "`fitstat'", "`sets'", /// "`all'",
+mata: domin_se_2mata("`reg'", "`fitstat'", "`sets'", "`all'", ///
 	"`conditional'", "`complete'", "`epsilon'", ///"`consmodel'", "`reverse'", 
 	"`esampleok'", "`weight'`exp'", "`in' `if'", "`varlist'")
 		
@@ -38,6 +38,8 @@ ereturn scalar N = `=r(N)'
 matrix `domwgts' = r(domwgts)*J(colsof(r(domwgts)), 1, 1)
 ereturn scalar fitstat_o = `=`domwgts'[1,1]'
 
+if `:list sizeof all' ereturn scalar fitstat_a = `=scalar(`allfs')'
+
 if strlen("`setcnt'") {
 
 	ereturn hidden scalar setcnt = `setcnt'
@@ -58,7 +60,7 @@ else ereturn hidden scalar setcnt = 0
 ereturn hidden local dtitle "`title'"
 /*
 ereturn hidden local reverse "`reverse'"
-
+*/
 if `:list sizeof all' {
 
 	fvunab all: `all'
@@ -66,7 +68,7 @@ if `:list sizeof all' {
 	ereturn local all "`all'"
 	
 }
-*/
+
 if strlen("`epsilon'") ereturn local estimate "epsilon" 
 
 else ereturn local estimate "dominance"
@@ -229,7 +231,7 @@ void domin_se_2mata(
 	string scalar reg, 
 	string scalar fitstat, 
 	string scalar sets, 
-	/*string scalar all, */
+	string scalar all,
 	string scalar conditional, 
 	string scalar complete,
 	string scalar epsilon, 
@@ -243,7 +245,6 @@ void domin_se_2mata(
 	
 	
 /* ~ declarations and initial structure */
-	//struct domin_se_specs scalar model_specs
 	class AssociativeArray scalar model_specs
 	
 	real scalar set, rc, full_fitstat, obs, all_fitstat, cons_fitstat
@@ -268,7 +269,7 @@ void domin_se_2mata(
 	if ( strlen(epsilon) ) {
 		
 		/*exit conditions: user must restructure*/
-		if ( strlen(/*all + sets +*/ weight) ) { 									// <- note to self: consider adding weights for 'epsilon'
+		if ( strlen(all + sets + weight) ) { 									// <- note to self: consider adding weights for 'epsilon'
 			
 			display("{err}{opt epsilon} not allowed with" + 
 					" {opt all()}, {opt sets()}, or {opt weight}s.")
@@ -300,7 +301,15 @@ void domin_se_2mata(
 		iv_sets = substr(iv_sets, 2, strlen(iv_sets):-2)
 		st_local("setcnt", strofreal( length(iv_sets) ) )
 		for (set=1; set<=length(iv_sets); set++) {
+			
 			st_local("set"+strofreal(set), iv_sets[set] )
+			
+			rc = _stata("fvunab waste: " + iv_sets[set], 1)
+			if ( rc ) {
+				display("{err}Problem with variables in set position " + strofreal(set) + ": " + iv_sets[set])
+				exit(111)
+			}
+			
 		}
 		
 		/*combine to single iv vector*/
@@ -333,7 +342,7 @@ void domin_se_2mata(
 		
 		st_eclear()
 
-		rc = _stata(reg + " " + dv + " " + invtokens(ivs) + " " + /*all +  */
+		rc = _stata(reg + " " + dv + " " + invtokens(ivs) + " " + all +  
 			" [" + weight + "] " + inif + ", " + regopts, 1)
 		
 		if ( rc ) {
@@ -373,7 +382,7 @@ void domin_se_2mata(
 		stata("generate byte " + marks[2] + " = 1 " + inif, 1)
 			
 		stata("markout " + marks[1] + " " + marks[2] + 
-			" " + invtokens(ivs) + " " /*+ all*/, 1)
+			" " + invtokens(ivs) + " " + all, 1)
 			
 		stata("count if " + marks[1], 1)
 			
@@ -386,23 +395,19 @@ void domin_se_2mata(
 		display("{err}{cmd:esample()} not set. Use {opt noesampleok} to avoid checking {cmd:esample()}.")
 		exit(198)
 	}
-	
 
-	/*	
 /* ~ begin collecting effect sizes ~ */
 	all_fitstat = 0	
 	
 	if ( strlen(all) ) {
 			
-		stata(reg + " " + dv + " " + all +  
-			" [" + weight + "] if " + marks[1] + 
+		stata(reg + " " + dv + " " + all + " [" + weight + "] if " + marks[1] + 
 			", " + regopts, 1)
 	
 		all_fitstat = st_numscalar( strtrim(fitstat) )
 
-		
 	}
-	
+	/*
 	cons_fitstat = 0	
 	
 	if ( strlen(consmodel) ) {
@@ -423,7 +428,7 @@ void domin_se_2mata(
 
 		if (reg == "mvdom") 
 			stata("mvdom " + dv + " " + invtokens(ivs) + " if " + 
-				marks[1] + ", " + regopts + " epsilon", 0)
+				marks[1] + ", " + regopts + " epsilon", 1)
 		else eps_ri(dv + " " + invtokens(ivs), reg, marks[1], regopts) 
 		
 	}
@@ -435,14 +440,14 @@ void domin_se_2mata(
 		model_specs.put("touse", marks[1])
 		model_specs.put("regopts", regopts)
 		
-		/*model_specs.put("all", all)*/
+		model_specs.put("all", all)
 		model_specs.put("dv", dv)
 		
 		/*model_specs.put("consmodel", consmodel)
-		model_specs.put("reverse", reverse)
+		model_specs.put("reverse", reverse)*/
 		
-		model_specs.put("all_fitstat" all_fitstat)
-		model_specs.put("cons_fitstat", cons_fitstat)
+		model_specs.put("all_fitstat", all_fitstat)
+		/*model_specs.put("cons_fitstat", cons_fitstat)
 		*/
 		
 		dominance(
@@ -479,6 +484,12 @@ void domin_se_2mata(
 	st_local("touse", marks[1])
 	st_local("dv", dv)
 	
+	scalars = st_tempname(2)
+	st_numscalar(scalars[1], model_specs.get("all_fitstat"))
+	st_local("allfs", scalars[1])
+	/*st_numscalar(scalars[2], model_specs.get("cons_fitstat"))
+	st_local("consfs", scalars[2])*/
+	
 }
 
 end
@@ -496,11 +507,11 @@ mata:
 		real scalar fitstat
 
 		stata(model_specs.get("reg") + " " + model_specs.get("dv") + " " + 
-			/*model_specs.all + " " +*/ IVs_in_model + " [" + 
+			model_specs.get("all") + " " + IVs_in_model + " [" + 
 			model_specs.get("weight") + "] if " + 
-			model_specs.get("touse") + ", " + model_specs.get("regopts"), 1) //conduct regression
+			model_specs.get("touse") + ", " + model_specs.get("regopts"), 1)
 
-		fitstat = st_numscalar(model_specs.get("fitstat")) /*- model_specs.all_fitstat - model_specs.cons_fitstat*/ //record fitstat omitting constant and all subsets values; note that the fitstat to be pulled from Stata is stored as the Stata local "fitstat"
+		fitstat = st_numscalar(model_specs.get("fitstat")) - model_specs.get("all_fitstat") /* - model_specs.cons_fitstat*/ 
 
 		return(fitstat)
 
