@@ -6,8 +6,9 @@ program define domin_se, eclass
 version 17
 
 **# Program definition and argument checks
-syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , [Reg(string) Fitstat(string) Sets(string) /// <- do checks on sets to be varlist?
-	All(varlist fv ts) noGENeral noCONditional noCOMplete EPSilon CONSmodel REVerse noESAMPleok] // remove direct mi support - make it into a wrapper
+syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , ///
+	[Reg(string) Fitstat(string) Sets(string) All(varlist fv ts) ///
+	noGENeral noCONditional noCOMplete EPSilon CONSmodel REVerse noESAMPleok] // remove direct mi support - make it into a wrapper
 	
 if strlen("`epsilon'") {
 	local esampleok "esampleok"
@@ -17,7 +18,7 @@ if strlen("`epsilon'") {
 
 **# Wrapper process for -domin- processing in Mata
 mata: domin_se_2mata("`reg'", "`fitstat'", "`sets'", "`all'", ///
-	"`conditional'", "`complete'", "`epsilon'", ///"`consmodel'", "`reverse'", 
+	"`conditional'", "`complete'", "`epsilon'", "`consmodel'", "`reverse'", ///
 	"`esampleok'", "`weight'`exp'", "`in' `if'", "`varlist'")
 		
 **# Ereturn processing
@@ -36,9 +37,10 @@ ereturn post `domwgts' [`weight'`exp'], depname(`dv') obs(`=`r(N)'') esample(`to
 ereturn scalar N = `=r(N)'
 
 matrix `domwgts' = r(domwgts)*J(colsof(r(domwgts)), 1, 1)
-ereturn scalar fitstat_o = `=`domwgts'[1,1]'
+ereturn scalar fitstat_o = `=`domwgts'[1,1] + r(allfs) + r(consfs)'
 
-if `:list sizeof all' ereturn scalar fitstat_a = `=scalar(`allfs')'
+if `:list sizeof all' ereturn scalar fitstat_a = `=r(allfs)'
+if strlen("`consmodel'") ereturn scalar fitstat_c = `=r(consfs)'
 
 if strlen("`setcnt'") {
 
@@ -58,9 +60,9 @@ else ereturn hidden scalar setcnt = 0
 
 **# Ereturn macros
 ereturn hidden local dtitle "`title'"
-/*
+
 ereturn hidden local reverse "`reverse'"
-*/
+
 if `:list sizeof all' {
 
 	fvunab all: `all'
@@ -104,122 +106,6 @@ ereturn matrix std = `stdzd'
 
 end
 
-
-/*
-/*display results - this section will not be extensively explained*/
-/*name matrices*/
-matrix colnames `domwgts' = `diivs'	
-
-if strlen("`reverse'") {	//if 'reverse', invert the direction and interpretation of rank and standardized weights
-
-	mata: st_matrix("`sdomwgts'", (st_matrix("`domwgts'"):*-1):/sum(st_matrix("`domwgts'"):*-1))
-	
-	mata: st_matrix("`ranks'", ((st_matrix("`ranks'"):-1):*-1):+cols(st_matrix("`ranks'")))
-
-}
-
-matrix colnames `sdomwgts' = `diivs'	
-
-matrix colnames `ranks' = `diivs'	
-
-if !strlen("`complete'") { 	
-
-	if strlen("`reverse'") mata: st_matrix("`cptdom'", st_matrix("`cptdom'"):*-1) //if 'reverse', invert the direction and interpretation of complete dominance
-
-	matrix colnames `cptdom' = `diivs'	
-	
-	matrix coleq `cptdom' = dominated?	
-	
-	matrix rownames `cptdom' = `diivs'	
-	
-	matrix roweq `cptdom' = dominates?	
-	
-}
-
-if !strlen("`conditional'") { 
-	
-	matrix rownames `cdldom' = `diivs'
-	
-	local colcdl `:colnames `cdldom''
-	
-	local colcdl = subinstr("`colcdl'", "c", "", .)
-	
-	matrix colnames `cdldom' = `colcdl'
-	
-	matrix coleq `cdldom' = #indepvars
-	
-}	
-
-if !strlen("`epsilon'") & strlen("`e(title)'") local title "`e(title)'"
-
-else if strlen("`epsilon'") & strlen("`e(title)'") local title "Epsilon-based `reg'"
-
-else local title "Custom user analysis"
-
-/*return values*/
-ereturn post `domwgts' [`weight'`exp'], depname(`dv') obs(`=`obs'') esample(`touse')
-
-if strlen("`setcnt'") {
-
-	ereturn hidden scalar setcnt = `setcnt'
-
-	forvalues x = 1/`setcnt' {
-	
-		fvunab set`x': `set`x''
-
-		ereturn local set`x' "`set`x''"
-		
-	}
-	
-}
-
-else ereturn hidden scalar setcnt = 0
-
-ereturn hidden local dtitle "`title'"
-
-ereturn hidden local reverse "`reverse'"
-
-if `:list sizeof all' {
-
-	fvunab all: `all'
-
-	ereturn local all "`all'"
-	
-}
-
-if strlen("`epsilon'") ereturn local estimate "epsilon" 
-
-else ereturn local estimate "dominance"
-
-if strlen("`regopts'") ereturn local regopts `"`regopts'"'
-
-ereturn local reg `"`reg'"'
-
-ereturn local fitstat "`fitstat'"
-
-ereturn local cmd `"domin"'
-
-ereturn local title `"Dominance analysis"'
-
-ereturn local cmdline `"domin `0'"'
-
-ereturn scalar fitstat_o = r(fs)
-
-if `:list sizeof all' ereturn scalar fitstat_a = `allfs'
-
-if strlen("`consmodel'") ereturn scalar fitstat_c = `consfs'
-
-if !strlen("`conditional'") ereturn matrix cdldom `cdldom'
-	
-if !strlen("`complete'") ereturn matrix cptdom `cptdom'
-
-ereturn matrix ranking `ranks'
-
-ereturn matrix std `sdomwgts'
-*/
-
-**# mata!
-
 **# Mata function adapting Stata input for Mata and initiating the Mata environment
 version 17
 
@@ -235,8 +121,8 @@ void domin_se_2mata(
 	string scalar conditional, 
 	string scalar complete,
 	string scalar epsilon, 
-	/*string scalar consmodel, 
-	string scalar reverse,*/
+	string scalar consmodel, 
+	string scalar reverse,
 	string scalar esampleok,
 	string scalar weight,
 	string scalar inif, 
@@ -360,7 +246,7 @@ void domin_se_2mata(
 			exit(198)
 
 		}
-		else full_fitstat = st_numscalar( strtrim(fitstat) ) // note to self - add this to passed values to dominance()
+		else full_fitstat = st_numscalar( strtrim(fitstat) ) 
 		
 		marks = st_tempname()
 		
@@ -407,7 +293,7 @@ void domin_se_2mata(
 		all_fitstat = st_numscalar( strtrim(fitstat) )
 
 	}
-	/*
+	
 	cons_fitstat = 0	
 	
 	if ( strlen(consmodel) ) {
@@ -421,7 +307,9 @@ void domin_se_2mata(
 	}
 	
 	if ( strlen(all) ) all_fitstat = all_fitstat - cons_fitstat
-	*/
+	
+	full_fitstat = full_fitstat - all_fitstat - cons_fitstat
+	
 	
 /* ~ invoke dominance ~ */	
 	if ( strlen(epsilon) ) {
@@ -443,12 +331,11 @@ void domin_se_2mata(
 		model_specs.put("all", all)
 		model_specs.put("dv", dv)
 		
-		/*model_specs.put("consmodel", consmodel)
-		model_specs.put("reverse", reverse)*/
+		model_specs.put("consmodel", consmodel)
+		model_specs.put("reverse", reverse)
 		
 		model_specs.put("all_fitstat", all_fitstat)
-		/*model_specs.put("cons_fitstat", cons_fitstat)
-		*/
+		model_specs.put("cons_fitstat", cons_fitstat)
 		
 		dominance(
 			model_specs, &domin_call(), 
@@ -461,6 +348,10 @@ void domin_se_2mata(
 			"set":+( strofreal( (1..length(iv_sets)) ) )
 	
 	st_matrixcolstripe("r(domwgts)", (J(length(ivs), 1, ""), ivs') )
+	
+	if ( strlen(reverse) )
+		st_matrix("r(cptdom)", 
+			 st_matrix("r(cptdom)"):*-1 )
 	
 	if ( !strlen(conditional) ) st_matrixrowstripe("r(cdldom)", (J(length(ivs), 1, ""), ivs') )
 	
@@ -475,6 +366,9 @@ void domin_se_2mata(
 			
 	st_matrix("r(ranks)", 
 		(mm_ranks( (st_matrix("r(domwgts)")'):*-1, 1, 1)') )
+	if ( strlen(reverse) ) 
+		st_matrix("r(ranks)", 
+			( mm_ranks( (st_matrix("r(ranks)")'):*-1, 1, 1) )' )
 	st_matrixcolstripe("r(ranks)", (J(length(ivs), 1, ""), ivs') )
 		
 	st_numscalar("r(N)", obs)
@@ -484,11 +378,8 @@ void domin_se_2mata(
 	st_local("touse", marks[1])
 	st_local("dv", dv)
 	
-	scalars = st_tempname(2)
-	st_numscalar(scalars[1], model_specs.get("all_fitstat"))
-	st_local("allfs", scalars[1])
-	/*st_numscalar(scalars[2], model_specs.get("cons_fitstat"))
-	st_local("consfs", scalars[2])*/
+	st_numscalar("r(allfs)", model_specs.get("all_fitstat"))
+	st_numscalar("r(consfs)", model_specs.get("cons_fitstat"))
 	
 }
 
@@ -511,7 +402,9 @@ mata:
 			model_specs.get("weight") + "] if " + 
 			model_specs.get("touse") + ", " + model_specs.get("regopts"), 1)
 
-		fitstat = st_numscalar(model_specs.get("fitstat")) - model_specs.get("all_fitstat") /* - model_specs.cons_fitstat*/ 
+		fitstat = st_numscalar(model_specs.get("fitstat")) - 
+			model_specs.get("all_fitstat") - 
+			model_specs.get("cons_fitstat")
 
 		return(fitstat)
 
