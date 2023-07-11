@@ -37,7 +37,8 @@ ereturn post `domwgts' [`weight'`exp'], depname(`dv') obs(`=`r(N)'') esample(`to
 ereturn scalar N = `=r(N)'
 
 matrix `domwgts' = r(domwgts)*J(colsof(r(domwgts)), 1, 1)
-ereturn scalar fitstat_o = `=`domwgts'[1,1] + r(allfs) + r(consfs)'
+if strlen("`epsilon'") ereturn scalar fitstat_o = `=`domwgts'[1,1]'
+else ereturn scalar fitstat_o = `=`domwgts'[1,1] + r(allfs) + r(consfs)'
 
 if `:list sizeof all' ereturn scalar fitstat_a = `=r(allfs)'
 if strlen("`consmodel'") ereturn scalar fitstat_c = `=r(consfs)'
@@ -133,13 +134,18 @@ void domin_se_2mata(
 /* ~ declarations and initial structure */
 	class AssociativeArray scalar model_specs
 	
-	real scalar set, rc, full_fitstat, obs, all_fitstat, cons_fitstat
+	real scalar builtin, iv, set, rc, obs, 
+		full_fitstat, all_fitstat, cons_fitstat, index_count
 	
-	string scalar regopts, dv, marks
+	string scalar regopts, dv, marks, bltin_varlist, bltin_index
 	
 	string rowvector ivs, iv_sets
 	
-	transmorphic parser	
+	real rowvector bltin_dvcor
+	
+	real matrix bltin_corrmat
+	
+	transmorphic parser
 	
 /* ~ argument checks ~ */
 	/*-domin- defaults*/
@@ -149,7 +155,14 @@ void domin_se_2mata(
 		
 		fitstat = "e(r2)" 
 		
+		weight = 
+			subinword( subinword( weight, 
+				"pweight", "aweight"), "iweight", "aweight")
+		
+		builtin = 1
+		
 	}
+	else builtin = 0
 	
 	/*'epsilon' specifics*/
 	if ( strlen(epsilon) ) {
@@ -281,6 +294,64 @@ void domin_se_2mata(
 		display("{err}{cmd:esample()} not set. Use {opt noesampleok} to avoid checking {cmd:esample()}.")
 		exit(198)
 	}
+	
+/* built in */
+	if ( builtin ) {
+		
+		bltin_varlist = bltin_index = J(1, length(ivs), "")
+		index_count = 1
+		
+		for (iv = 1; iv <= length(ivs); iv++) {
+			
+			stata("fvexpand " + ivs[iv], 1)
+			
+			if ( strlen( st_macroexpand("`" + "r(fvops)" + "'") ) | 
+				strlen( st_macroexpand("`" + "r(tsops)" + "'") ) ) {
+					
+				bltin_index[iv] = st_macroexpand("`" + "r(varlist)" + "'")
+				
+				stata("fvrevar " + ivs[iv], 1)
+		
+				bltin_varlist[iv] = st_macroexpand("`" + "r(varlist)" + "'")
+				
+				if ( any( 
+					strmatch( tokens(bltin_index[iv]) , "*b.*") ) ) 
+						bltin_varlist[iv] = 
+							invtokens( 
+								select( tokens(bltin_varlist[iv]),  
+									!strmatch( tokens(bltin_index[iv]) , "*b.*") ) )
+				
+				bltin_index[iv] = 
+					invtokens( 
+						strofreal((index_count..index_count+length( tokens( bltin_varlist[iv] ) 
+					)-1 ) ) )
+				
+				index_count = index_count + length( tokens( bltin_varlist[iv] ) )
+				
+			}
+			else {
+				
+				bltin_varlist[iv] = ivs[iv]
+				
+				bltin_index[iv] = strofreal(index_count)
+			
+				index_count++
+				
+			}
+			
+		}
+		
+		stata("correlate " + invtokens(bltin_varlist) + 
+			" [" + weight + "] if " + marks[1], 1)
+			
+		bltin_corrmat = st_matrix("r(C)")
+		
+		stata("correlate " + dv + " " + invtokens(bltin_varlist) + 
+			" [" + weight + "] if " + marks[1], 1)
+		
+		bltin_dvcor = st_matrix("r(C)")[1, 2..index_count]
+				
+	}
 
 /* ~ begin collecting effect sizes ~ */
 	all_fitstat = 0	
@@ -319,6 +390,20 @@ void domin_se_2mata(
 				marks[1] + ", " + regopts + " epsilon", 1)
 		else eps_ri(dv + " " + invtokens(ivs), reg, marks[1], regopts) 
 		
+	}
+	else if ( builtin ) {
+		
+		model_specs.put("corrmat", bltin_corrmat)
+		model_specs.put("dvcor", bltin_dvcor)
+		
+		model_specs.put("all_fitstat", all_fitstat)
+		model_specs.put("cons_fitstat", cons_fitstat)
+		
+		
+		dominance(
+			model_specs, &domin_regress(), 
+			bltin_index', conditional, complete, full_fitstat )
+			
 	}
 	else {
 		
@@ -403,6 +488,41 @@ mata:
 			model_specs.get("touse") + ", " + model_specs.get("regopts"), 1)
 
 		fitstat = st_numscalar(model_specs.get("fitstat")) - 
+			model_specs.get("all_fitstat") - 
+			model_specs.get("cons_fitstat")
+
+		return(fitstat)
+
+	}
+	
+end
+
+**# Mata function to execute built-in linear regression
+version 17
+
+mata:
+
+	mata set matastrict on
+
+	real scalar domin_regress(string scalar IVs_in_model,
+		class AssociativeArray scalar model_specs) { 
+
+		real scalar fitstat
+		
+		real rowvector index
+		
+		real colvector coeffs
+		
+		real matrix analysis_mat
+		
+		index = strtoreal( tokens( invtokens(IVs_in_model) ) )
+					
+		coeffs = 
+			qrsolve(
+				model_specs.get("corrmat")[index, index], 
+				model_specs.get("dvcor")[index]' )
+				
+		fitstat = model_specs.get("dvcor")[index]*coeffs - 
 			model_specs.get("all_fitstat") - 
 			model_specs.get("cons_fitstat")
 

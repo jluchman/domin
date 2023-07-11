@@ -270,6 +270,5 @@ end
     - remove support for -mi- make it a wrapper like fitdom()
  ** planned ** -domme- depreciated in favor of -domin [se]- and -domin me-
  ** planned ** - built-in regress function
- ** planned ** - by-able?
  ** planned ** - updates to dominance.mata ??
  */
