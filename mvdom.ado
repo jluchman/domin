@@ -1,10 +1,10 @@
-*! mvdom version 1.1 3/11/2015 Joseph N. Luchman
+*! mvdom version 1.2.0 xx/xx/202x Joseph N. Luchman
 
-version 12.1
+version 15
 
 program define mvdom, eclass
 
-syntax varlist(min = 2) if [aw fw], dvs(varlist min=1) [noConstant epsilon pxy] //epsilon is a hidden option
+syntax varlist(min = 2) [if] [aw fw], dvs(varlist min=1) [epsilon pxy] //epsilon is a hidden option
 
 tempname canonmat 
 
@@ -12,21 +12,19 @@ tempvar touse
 
 gettoken dv ivs: varlist
 
-if strlen("`epsilon'") {
-
-	quietly generate byte `touse' = 1 `if'
+quietly generate byte `touse' = 1 `if'
 	
-	quietly replace `touse' = 0 if missing(`touse')
+quietly replace `touse' = 0 if missing(`touse')
+
+if strlen("`epsilon'") {
 
 	mata: eps_ri_mv("`dv' `dvs'", "`ivs'", "`touse'")
 	
 }
-
 else {
-
 	if strlen("`pxy'") {
 	
-		quietly correlate `dv' `dvs' `ivs' [`weight'`exp'] `if'
+		quietly correlate `dv' `dvs' `ivs' [`weight'`exp'] if `touse'
 		
 		local dvnum: word count `dv' `dvs'
 		
@@ -38,20 +36,20 @@ else {
 		invsym(`canonmat'[`=`:word count `dv' `dvs''+1'..., `=`:word count `dv' `dvs''+1'...])* ///
 		`canonmat'[`=`:word count `dv' `dvs''+1'..., 1..`:word count `dv' `dvs''] ///
 		)
-		
-		ereturn scalar r2 = `canonmat'[1, 1]/`:word count `dv' `dvs''
-		
-	}
 
+	}
 	else {
 
-		quietly _canon (`dv' `dvs') (`ivs') [`weight'`exp'] `if', `constant'
+		quietly _canon (`dv' `dvs') (`ivs') [`weight'`exp'] if `touse'
 
 		matrix `canonmat' = e(ccorr)
 
-		ereturn scalar r2 = `canonmat'[1, 1]^2
-
 	}
+	
+	ereturn post, esample(`touse')
+	
+	if strlen("`pxy'") ereturn scalar r2 = `canonmat'[1, 1]/`:word count `dv' `dvs''
+	else ereturn scalar r2 = `canonmat'[1, 1]^2
 	
 	ereturn local title "Multivariate regression"
 	
@@ -60,7 +58,7 @@ else {
 end
 
 /*Mata function to execute epsilon-based relative importance with mvdom*/
-version 12.1
+version 15
 
 mata: 
 
@@ -69,14 +67,20 @@ mata set matastrict on
 void eps_ri_mv(string scalar dvlist, string scalar ivlist, string scalar touse) 
 {
 	/*object declarations*/
-	real matrix X, Y, L, R, Lm, L2, R2, Lm2, Rxy
+	real matrix X, Y, L, R, Lm, L2, R2, Lm2, Pxy
 
 	real rowvector V, Bt, V2, Bt2
 	
-	/*begin processing*/
-	Y = correlation(st_data(., tokens(dvlist), st_varindex(touse))) //obtain DV correlations
+	transmorphic view_dv, view_iv
 	
-	X = correlation(st_data(., tokens(ivlist), st_varindex(touse))) //obtain IV correlations
+	/*begin processing*/
+	st_view(view_dv, ., tokens(dvlist), st_varindex(touse))
+	
+	st_view(view_iv, ., tokens(ivlist), st_varindex(touse))
+	
+	Y = correlation(view_dv) //obtain DV correlations
+	
+	X = correlation(view_iv) //obtain IV correlations
 	
 	L = R = X //set-up for svd(); IV side
 	
@@ -94,12 +98,11 @@ void eps_ri_mv(string scalar dvlist, string scalar ivlist, string scalar touse)
 	
 	Lm2 = (L2*diag(sqrt(V2))*R2) //process orthogonalized DVs
 	
-	Rxy = correlation((st_data(., tokens(ivlist), st_varindex(touse)), ///
-	st_data(., tokens(dvlist), st_varindex(touse)))) //correlation between original IVs and DVs
+	Pxy = correlation((view_iv, view_dv)) //correlation between original IVs and DVs
 	
-	Rxy = Rxy[rows(X)+1..rows(Rxy), 1..cols(X)] //take only IV-DV correlations
+	Pxy = Pxy[rows(X)+1..rows(Pxy), 1..cols(X)] //take only IV-DV correlations
 	
-	Bt2 = Rxy'*invsym(Lm2)	//obtain adjusted DV interrelations
+	Bt2 = Pxy'*invsym(Lm2)	//obtain adjusted DV interrelations
 	
 	Bt = invsym(Lm)*Bt2 //obtain adjusted regression weights
 	
@@ -130,3 +133,13 @@ Basic version
 - added the Pxy metric 
 - added the epsilon-based function
 - changed canon to _canon; canon had odd behavior when called from mvdom
+ ---
+ mvdom version 1.2.0 - mth day, year
+** (planned) minimum versions 15 consistent with base -domin-
+** (planned) 'if' statement optional to accommodate domin v. 3.5.0
+** (planned) cleaned up returned values - consistent with reported
+** (planned) added e(sample) needed for domin v. 3.5.0
+** (planned) restructured eps_ri_mv()
+** (planned) removed noconstant option - not consistently applied, not sure why one would ever use it
+** (planned) unhide epsilon -  note that it produces Pxy as a metric
+** (planned) use st_view as opposed to st_data for efficiency

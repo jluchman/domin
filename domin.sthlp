@@ -1,11 +1,11 @@
 {smcl}
-{* *! version 3.4.2 March 7, 2023 J. N. Luchman}{...}
+{* *! version 4.0.0 mth day, 202x J. N. Luchman}{...}
 {cmd:help domin}
 
 {title:Title}
 
 {phang}
-{bf:domin} {hline 2} Dominance analysis
+{bf:domin} {hline 2} Dominance analysis: Single Equation Method
 
 
 {title:Syntax}
@@ -22,9 +22,8 @@
 {synopt :{opt s:ets((IVset_1) ... (IVset_x))}}sets of indepdendent variables{p_end}
 {synopt :{opt a:ll(IVall)}}indepdendent variables included in all subets{p_end}
 {synopt :{opt cons:model}}adjusts {opt fitstat()} value when {bf:_cons}-only model is not 0{p_end}
-{synopt :{opt mi}}uses {cmd:mi set} data{p_end}
-{synopt :{opt miopt(mi_options)}}options passed to {cmd:mi estimate}{p_end}
 {synopt :{opt eps:ilon}}uses the epsilon or relative weights estimator{p_end}
+{synopt :{opt noesamp:leok}}allow computation when estimation sample is not set in {opt reg()}{p_end}
 
 {syntab:Reporting}
 {synopt :{opt nocon:ditional}}suppresses computation of conditional dominance statistics{p_end}
@@ -49,10 +48,6 @@ that accept them.{p_end}
 Note that {cmd:domin} requires at least two indepvars or sets of indepvars 
 (see option {opt sets()} below).  Because it is possible to submit only sets 
 of {it:indepvars}, the initial {it:indepvars} statement is optional.
-
-{p 4 6 2}
-{cmd:domin} requires installation of Ben Jann's {cmd:moremata} package 
-(install {stata ssc install moremata:here}).{p_end}
 
 
 {title:Table of Contents}
@@ -239,13 +234,18 @@ equation {it: cmd depvar indepvars} syntax.
 added in {opt reg()}, all the arguments following the comma will be passed to each run of the command as 
 options. 
 
-{pmore}{opt reg()} defaults to {opt reg(regress)} with a warning denoting the default behavior.
+{pmore}As of version 3.5, when {opt reg()} is omitted, {cmd:domin} defaults to using a very fast built-in method 
+for linear regression-based dominance analysis with the explained variance R2. Using the built-in method is 
+strongly recommended over using {opt reg(regress)}. The user must omit both {opt reg()} and {opt fitstat()} 
+to invoke the built-in method.
 
 {phang}{opt fitstat(scalar)} refers {cmd:domin} to the scalar valued model fit summary statistic used to 
 compute all dominance statistics/designations.  The scalar in {opt fitstat()} can be any {help return:returned}, 
 {help ereturn:ereturned}, or other {help scalar:scalar}. 
 
-{pmore}{opt fitstat()} defaults to {opt fitstat(e(r2))} with a warning denoting the default behavior.
+{pmore}As is noted in the {opt reg()} section, when {opt reg()} and {opt fitstat()} are omitted, 
+{cmd:domin} defaults to using a very fast built-in method for linear regression-based dominance analysis with the 
+explained variance R2.
 
 {pmore}See {help fitdom} for wrapper command to use fit statistics computed as postestimation commands such 
 as {cmd: estat ic} (see Example #9b).
@@ -292,19 +292,6 @@ model fit statistics that are not 0 when a constant[s]-only model is estimated (
 and the user wants to obtain dominance statistics/designations adjusting for the constant[s]-only 
 baseline value.
 
-{phang}{opt mi} invokes Stata's {help mi} options across all sub-models.  Thus, each sub-model's 
-analysis is run using the {cmd:mi estimate} prefix and all the {opt fitstat()} statistics returned 
-by the analysis program are averaged across all imputations (see Example #10).  
-
-{pmore}To pass specific {opt mi} prefix options to each sub-model, use {opt miopt()} below.
-
-{phang}{opt miopt(mi_options)} passes options to {cmd:mi estimate} for each sub-model.  Each analysis is 
-passed the options in {opt miopt()}.  Each of the entries in {opt miopt()} must be a valid option 
-for {cmd:mi estimate}.  
-
-{pmore}Invoking {opt miopt()} without {opt mi} invokes {opt mi} and produces a warning noting that 
-the user neglected to also specify {opt mi}. 
-
 {phang}{opt epsilon} is an alternative Shapley value decomposition estimator also known as 
 "Relative Weights Analysis" (Johnson, 2000).  {opt epsilon} is a faster implementation as it does not 
 estimate all sub-models to ascertain the effect of each IV independent of each other IV, but rather 
@@ -327,7 +314,7 @@ Currently, {opt epsilon} works with commands {cmd:regress}, {cmd:glm} (for any {
 program for multivariate regression; see LeBreton & Tonidandel, 2008; see also Example #6).  
 By default, {opt epsilon} assumes {opt reg(regress)} and {opt fitstat(e(r2))}.  Note that {opt epsilon} 
 ignores entries in {opt fitstat()} as it produces its own fit statistic.  {opt episilon}'s implementation 
-does not allow {opt consmodel}, {opt reverse}, {opt mi}, and does not allow the use of {help weights}.   
+does not allow {opt consmodel} or {opt reverse}. As of version 3.5, {opt epsilon} does allow {help weights}.   
 
 {pmore}{cmd:Note:} The {opt epsilon} approach has been criticized for being conceptually flawed and biased 
 (see Thomas, Zumbo, Kwan, & Schweitzer, 2014) as an estimator of Shapley values.  Despite this criticism 
@@ -335,6 +322,13 @@ research also shows similarity between DA and {opt epsilon}-based methods in ter
 (i.e., LeBreton et al., 2004).  {opt epsilon} is offered in {cmd:domin} as it produces useful approximations 
 to general dominance statistics/Shapley values. Ultimately, the user is cautioned in the use of 
 {opt epsilon} as its speed may come at the cost of bias.
+
+{phang}{opt nosampleok} allows {cmd:domin} to proceed in computing dominance statistics despite the underlying 
+command in {opt reg()} not setting the esimation sample. {cmd:domin} uses the {cmd:e(sample)} result to restrict 
+the observation prior to estimating all sub-models. This behavior is new as of version 3.5. 
+
+{pmore} When {opt nosampleok} is invoked, {cmd:domin} will attempt to mark the estimation sample using all variables 
+the {it:depvar} and {it:indepvars} lists as well as the {opt all()} and the {opt sets()} options.
 
 {dlgtab:Reporting}
 
@@ -398,7 +392,7 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 
 {phang} {stata sysuse auto}{p_end}
 
-{phang}Example 1: linear regression dominance analysis{p_end}
+{phang}Example 1: linear regression dominance analysis using built-in method{p_end}
 {phang} {stata domin price mpg rep78 headroom} {p_end}
 
 {phang}Example 2: Ordered outcome dominance analysis with covariate (e.g., Luchman, 2014){p_end}
@@ -451,22 +445,23 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 {phang} {stata matrix `estlist' = r(S)}{p_end}
 {phang} {stata ereturn scalar bic = `estlist'[1,6]}{p_end}
 {phang} {stata end}{p_end}
-{phang} {stata domin race tenure hours age never_married, reg(myprog) fitstat(e(bic)) consmodel reverse} {p_end}
+{phang} {stata domin race tenure hours age nev_mar, reg(myprog) fitstat(e(bic)) consmodel reverse} {p_end}
 
 {phang}Example 9b: Multinomial logistic regression with {cmd:fitdom} {p_end}
-{phang} {stata "domin race tenure hours age never_married, reg(fitdom, fitstat_fd(r(S)[1,6]) reg_fd(mlogit) postestimation(estat ic)) consmodel reverse fitstat(e(fitstat))"} {p_end}
+{phang} {stata "domin race tenure hours age nev_mar, reg(fitdom, fitstat_fd(r(S)[1,6]) reg_fd(mlogit) postestimation(estat ic)) consmodel reverse fitstat(e(fitstat))"} {p_end}
 
 {phang}Example 9c: Comparison dominance analysis with McFadden's pseudo-R2 {p_end}
-{phang} {stata domin race tenure hours age never_married, reg(mlogit) fitstat(e(r2_p))} {p_end}
+{phang} {stata domin race tenure hours age nev_mar, reg(mlogit) fitstat(e(r2_p))} {p_end}
 
-{phang}Example 10: Multiply imputed dominance analysis {p_end}
+{phang}Example 10: Multiply imputed dominance analysis using {cmd:mi_dom}{p_end}
 {phang} {stata webuse mheart1s20, clear} {p_end}
-{phang} {stata domin attack smokes age bmi hsgrad female, reg(logit) fitstat(e(r2_p)) mi} {p_end}
+{phang} {stata domin attack smokes age bmi hsgrad female, reg(mi_dom, mi_reg(logit) mi_fitstat(e(r2_p))) fitstat(e(fitstat))} {p_end}
 {phang} Comparison dominance analysis without {cmd:mi} ("in 1/154" keeps only original observations for comparison as in 
 {bf:{help mi_intro_substantive:[MI] intro substantive}}) {p_end}
 {phang} {stata domin attack smokes age bmi hsgrad female in 1/154, reg(logit) fitstat(e(r2_p))} {p_end}
 
-{phang}Example 11: Random forest with custom in-sample R2 postestimation command (requires {stata ssc install randomforest:randomforest} and Stata V15 or better){p_end}
+{phang}Example 11: Random forest with custom in-sample R2 postestimation command (requires {stata ssc install rforest:rforest}){p_end}
+{phang} {stata sysuse auto, clear} {p_end}
 {phang} {stata program define myRFr2, eclass} {p_end}
 {phang} {stata tempvar rfpred} {p_end}
 {phang} {stata predict `rfpred'} {p_end}
@@ -548,7 +543,7 @@ user need only provide {cmd:domin} the {cmd:pweight} variable for commands that 
 
 {space 4}{title:6c] Extending Models that can be Dominance Analyzed}
 
-{pstd}{cmd:domin} comes with 3 wrapper programs {cmd:mvdom}, {cmd:mixdom}, and {cmd:fitdom}.  
+{pstd}{cmd:domin} comes with 4 wrapper programs {cmd:mvdom}, {cmd:mixdom}, {cmd:fitdom}, and {cmd:mi_dom}.  
 
 {pstd}{cmd:mvdom} implements multivariate regression-based dominance analysis described by Azen and Budescu (2006; see {help mvdom}).  
 
@@ -569,6 +564,13 @@ command that produces a fit metric such as {help estat ic} or {help estat classi
 
 {pstd}This program allows postestimation commands that return fit metrics to be used directly in {cmd:domin} 
 without having to make a wrapper program for the entire model (i.e., as in Example #9a).
+
+{pstd}The fourth wrapper program, {cmd:mi_dom}, is a replacement for {cmd:domin}'s built in {opt mi} in versions 
+previous to 3.5  (see Example #10; see also {help mi_dom}).  
+
+{pstd}This program allows multiply imputed model fit statistics to be used in place 
+of fit statistics with missing data. Use of multiply imputed fit statistics can 
+reduce the bias of coefficient estimates and dominance statistics.
 
 {marker refs}{...}
 {title:7. References}
@@ -592,11 +594,11 @@ without having to make a wrapper program for the entire model (i.e., as in Examp
 
 {phang} Additional discussion of results, options, and conceptual issues on: 
 
-{phang}{browse "http://github.com/jluchman/domin/blob/master/README.md"}
+{phang}{browse "https://github.com/fmg-jluchman/domin/wiki"}
 
 {phang} Please report bugs, requests for features, and contribute to as well as follow on-going development of {cmd:domin} on:
 
-{phang}{browse "http://github.com/jluchman/domin"}
+{phang}{browse "http://github.com/fmg-jluchman/domin"}
 
 {title:Article}
 

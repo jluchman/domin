@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.0 Feb 15, 2021 J. N. Luchman}{...}
+{* *! version 2.1.0 mth day, 202x J. N. Luchman}{...}
 {cmd:help mixdom}
 {hline}{...}
 
@@ -12,7 +12,7 @@ Wrapper program for {cmd:domin} to conduct linear mixed effects regression domin
 
 {phang}
 {cmd:mixdom} {it:depvar} {it:indepvars} {it:{help if}} {weight} {cmd:,} 
-{opt id(idvar)} [{opt {ul on}re{ul off}opt(re_options)} {opt {ul on}m{ul off}opt(mixed_options)} {opt {ul on}noc{ul off}onstant}]
+{opt id(idvar)} [{opt {ul on}re{ul off}opt(re_options)} {opt {ul on}m{ul off}opt(mixed_options)}]
 
 {phang}{cmd:pweight}s and {cmd:fweight}s are allowed (see help {help weights:weights}).  {help fvvarlist:Factor} and 
 {help tsvarlist:time series variables} are allowed.  
@@ -29,7 +29,11 @@ Azen (2013) recommend that even if random coefficients are present in the data, 
 analysis.
 
 {pstd}
-Negative R2 values indicate model misspecification.
+{cmd:mixdom} is intended for use only as a wrapper program with {cmd:domin} for the dominance analysis of mixed-effects linear regression, and its syntax is designed to conform with {cmd:domin}'s expectations.  
+It is not recommended for use as an estimation command outside of {cmd:domin}.
+
+{pstd}
+Note that negative R2 values indicate likely model misspecification.
 
 {marker options}{...}
 {title:Options}
@@ -37,14 +41,11 @@ Negative R2 values indicate model misspecification.
 {phang}{opt id()} specifies the variable on which clustering occurs and that will appear after the random effects specification (i.e., ||) in the 
 {cmd:mixed} syntax.
 
-{phang}{opt remopt()} passes options to {cmd: mixed} specific to the random intercept effect (i.e., {opt pweight()} the user would 
+{phang}{opt reopt()} passes options to {cmd: mixed} specific to the random intercept effect (i.e., {opt pweight()} the user would 
 like to utilize during estimation.
 
 {phang}{opt mopt()} passes options to {cmd:mixed} that the user would like to utilize during estimation.
-This option was named {opt xtmopt()} in {cmd:mixdom} versions previous to 2.0.  {opt xtmopt()} still works in 
-{cmd:mixdom} 2.0 but cannot be used with {opt mopt()}.
-
-{phang}{opt noconstant} does not estimate an average fixed-effect constant (see option {opt noconstant} of {help mixed}).
+This option was named {opt xtmopt()} in {cmd:mixdom} versions previous to 2.0.0 and is now defunct.
 
 {title:Saved results}
 
@@ -54,6 +55,10 @@ This option was named {opt xtmopt()} in {cmd:mixdom} versions previous to 2.0.  
 {p2col 5 15 19 2: scalars}{p_end}
 {synopt:{cmd:e(r2_w)}}within-cluster R2{p_end}
 {synopt:{cmd:e(r2_b)}}between-cluster R2{p_end}
+{p2col 5 15 19 2: macros}{p_end}
+{synopt:{cmd:e(title)}}"Mixed-effects ML regression"{p_end}
+{p2col 5 15 19 2: functions}{p_end}
+{synopt:{cmd:e(sample)}}marks estimation sample{p_end}
 
 {title:References}
 
@@ -63,10 +68,10 @@ This option was named {opt xtmopt()} in {cmd:mixdom} versions previous to 2.0.  
 {title:Author}
 
 {p 4}Joseph N. Luchman{p_end}
-{p 4}Senior Scientist{p_end}
-{p 4}Fors Marsh Group LLC{p_end}
+{p 4}Principal Scientist{p_end}
+{p 4}Fors Marsh{p_end}
 {p 4}Arlington, VA{p_end}
-{p 4}jluchman@forsmarshgroup.com{p_end}
+{p 4}jluchman@forsmarsh.com{p_end}
 
 {title:Also see}
 

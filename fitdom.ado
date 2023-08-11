@@ -1,8 +1,8 @@
-*! fitdom version 0.0.0  11/21/2021 Joseph N. Luchman
+*! fitdom version 0.1.0  xx/xx/202x Joseph N. Luchman
 
 program define fitdom, eclass //history and version information at end of file
 
-version 12.1
+version 15
 
 syntax varlist(min = 1 ts fv) if [aw pw iw fw] , [Reg_fd(string) Postestimation(string) Fitstat_fd(string)]
 
@@ -18,10 +18,13 @@ if strlen("`regopts'") gettoken erase regopts: regopts, parse(",")	//parse out c
 
 ereturn scalar fitstat = `=`fitstat_fd''
 
+//note to self needs title and esample <- how to work with non-esample commands?
+
 end
 
 
 /* programming notes and history
 - fitdom version 0.0.0 - Nov 21, 2021 
-----
- */
+ ---
+ fitdom version 0.1.0 - mth day, year
+** (planned) minimum version 15 consistent with base -domin-
