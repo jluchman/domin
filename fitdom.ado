@@ -1,4 +1,4 @@
-*! fitdom version 0.1.0  xx/xx/202x Joseph N. Luchman
+*! fitdom version 0.1.0  8/14/2023 Joseph N. Luchman
 
 program define fitdom, eclass //history and version information at end of file
 
@@ -26,5 +26,5 @@ end
 /* programming notes and history
 - fitdom version 0.0.0 - Nov 21, 2021 
  ---
- fitdom version 0.1.0 - mth day, year
-** (planned) minimum version 15 consistent with base -domin-
+ fitdom version 0.1.0 - August 14, 2023
+-  minimum version 15 consistent with base -domin-

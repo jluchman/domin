@@ -1,10 +1,10 @@
-*! fitdom version 0.0.0  xx/xx/202x Joseph N. Luchman
+*! fitdom version 0.0.0  8/14/2023 Joseph N. Luchman
 
 program define mi_dom, eclass //history and version information at end of file
 
 version 15
 
-syntax varlist if [aw fw iw pw], mi_reg(string) [miopt(string) mi_regops(string)] mi_fitstat(string) //epsilon is a hidden option
+syntax varlist if [aw fw iw pw], Reg_mi(string) Fitstat_mi(string) [MIOpt(string)] 
 
 tempfile mifile	//produce a tempfile to store imputed fitstats for retreival
 
@@ -12,9 +12,12 @@ tempvar touse
 
 tempname fitstat
 
+gettoken reg_mi regopts_mi: reg_mi // separate out reg() options
+
 quietly generate byte `touse' = 1 `if'
 
-quietly mi estimate, saving(`mifile') `miopt': `mi_reg' `varlist' [`weight'`exp'] `if', `mi_regopts'	//run mi analysis saving results
+quietly mi estimate, saving(`mifile') `miopt': `reg_mi' ///
+	`varlist' [`weight'`exp'] `if', `regopts_mi'	//run mi analysis saving results
 
 scalar `fitstat' = 0 //placeholder scalar to hold the sum
 
@@ -24,7 +27,7 @@ foreach x of numlist `=e(m_est_mi)' {
 
 	estimates use `mifile', number(`x') //find the focal estimates
 	
-	scalar `fitstat' = `fitstat' + `=`mi_fitstat''*`num_imputes'^-1 //add in the weighted fitstat value
+	scalar `fitstat' = `fitstat' + `=`fitstat_mi''*`num_imputes'^-1 //add in the weighted fitstat value
 
 }
 
@@ -40,22 +43,6 @@ ereturn scalar fitstat = `fitstat'
 	
 end
 
-/*program to average fitstat across all multiple imputations for use in domin*/
-program define mi_avg, rclass
-
-version 15
-
-syntax, name(string) fitstat(string) list(numlist)
-
-tempname passstat
-
-
-
-return scalar passstat = `passstat' //average fitstat = the MI'd fitstat
-
-end
-
-
 /* programming notes and history
-- mi_dom version 0.0.0 - mth day, year
+- mi_dom version 0.0.0 - August 14, 2023
 

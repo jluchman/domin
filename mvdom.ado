@@ -1,4 +1,4 @@
-*! mvdom version 1.2.0 xx/xx/202x Joseph N. Luchman
+*! mvdom version 1.2.0 8/14/2023 Joseph N. Luchman
 
 version 15
 
@@ -134,12 +134,12 @@ Basic version
 - added the epsilon-based function
 - changed canon to _canon; canon had odd behavior when called from mvdom
  ---
- mvdom version 1.2.0 - mth day, year
-** (planned) minimum versions 15 consistent with base -domin-
-** (planned) 'if' statement optional to accommodate domin v. 3.5.0
-** (planned) cleaned up returned values - consistent with reported
-** (planned) added e(sample) needed for domin v. 3.5.0
-** (planned) restructured eps_ri_mv()
-** (planned) removed noconstant option - not consistently applied, not sure why one would ever use it
-** (planned) unhide epsilon -  note that it produces Pxy as a metric
-** (planned) use st_view as opposed to st_data for efficiency
+ mvdom version 1.2.0 - August 14, 2023
+ - minimum versions 15 consistent with base -domin-
+ - 'if' statement optional to accommodate domin v. 3.5.0
+ - cleaned up returned values - consistent with reported
+ - added e(sample) needed for domin v. 3.5.0
+ - restructured eps_ri_mv()
+ - removed noconstant option - not consistently applied, not sure why one would ever use it
+ - unhide epsilon -  note that it produces Pxy as a metric
+ - use st_view as opposed to st_data for efficiency

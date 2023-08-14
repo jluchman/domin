@@ -1,4 +1,4 @@
-*! domin version 3.5.0  xx/xx/202x Joseph N. Luchman
+*! domin version 3.5.0  8/14/2023 Joseph N. Luchman
 // version information at end of file
 
 **# Pre-program definition
@@ -289,9 +289,6 @@ if strlen("`e(all)'") display "{txt}Variables included in all subsets: `e(all)'"
 
 end
 
-*! domin_2mata version 0.0.0  xx/xx/202x Joseph N. Luchman
-// version information at end of file
-
 **# Mata function adapting Stata input for Mata and initiating the Mata environment
 version 15
 
@@ -365,7 +362,7 @@ void domin_2mata(
 			
 			display("{err}{opt epsilon} not allowed with" + 
 					" {opt all()} or {opt sets()}.")
-			exit(198) 															// <- note to self: document change to epsilon's error behavior ~~ 
+			exit(198) 															
 				
 		}
 		
@@ -491,7 +488,7 @@ void domin_2mata(
 	}
 	
 /* ~ built-in linear regression-based model ~ */
-	if ( builtin ) {  // <- note to self: test wide variety of 'regress'-es on this
+	if ( builtin ) { 
 		
 		bltin_varlist = bltin_index = J(1, length(ivs), "")
 		index_count = 1
@@ -545,6 +542,9 @@ void domin_2mata(
 			
 		}
 		else bltin_all = ""
+		
+		if (regexm(weight, "^[pi]weight=")) 
+			weight = regexr(weight, "^[pi]weight=", "aweight=")
 		
 		stata("correlate " + invtokens(bltin_varlist) + " " + all + 
 			" [" + weight + "] if " + marks[1], 1)
@@ -934,17 +934,17 @@ end
  // 3.4.2 - March 7, 2023
  - call 'dominance.mata' as opposed to using 'lb_dominance.mlib' to allow backward compatability
  ---
- domin version 3.5.0 - mth day, year
- ** planned ** most of command migrated to Mata - minimum supported version is 15
-	- argument check changes - 
+ domin version 3.5.0 - August 14, 2023
+ - most of command migrated to Mata - minimum supported version is 15
+	- argument check changes - new requirement that underlying command has e(sample)
     - remove support for -mi- make it a wrapper like fitdom()
 	- remove dependency on -moremata-
- ** planned ** - built-in linear regression/-regress- function for speedier DA
- ** planned ** - updates to dominance.mata (to 0.1.0)
+ - built-in linear regression/-regress- function for speedier DA
+ - updates to dominance.mata (to 0.1.0)
 	- updated 'epsilon' method to use st_view() instead of st_data()
 	- 'epsilon' method accepts weights
  ** 
  ---
  future domin
- ** planned ** - depreciated by -domin2- eventually will be defunct and enveloped by its interface
+ ** planned ** - depreciated by -domin2-'s bmaregress interface; eventually will be defunct and enveloped by its interface
  */

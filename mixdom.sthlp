@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1.0 mth day, 202x J. N. Luchman}{...}
+{* *! version 2.1.0 August 14, 2023 J. N. Luchman}{...}
 {cmd:help mixdom}
 {hline}{...}
 

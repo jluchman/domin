@@ -1,6 +1,6 @@
-*! domme version 1.1.2 day/mth/202x Joseph N. Luchman
+*! domme version 1.1.2 8/14/2023 Joseph N. Luchman
 
-capture include dominance0.mata, adopath																	// include Mata-based dominance code
+capture include dominance0.mata, adopath																// include Mata-based dominance code
 
 program define domme, eclass 																			// ~ history and version information at end of file ~
 
@@ -1067,7 +1067,7 @@ end
  - fixed complete dominance table display; retains equation name and adds informative prefix
  // 1.1.1 - March 7, 2023
  - call 'dominance.mata' as opposed to using 'lb_dominance.mlib' to allow backward compatability
- // 1.1.2 - mth day, 202x
+ // 1.1.2 - August 14, 2023
  - migrated to a sub-method in the -domin- module
  - call temporary 'dominance0.mata' (v 0.0) for time being until re-designed similar to -domin- to use 'dominance.mata' versions > 0.0
 */

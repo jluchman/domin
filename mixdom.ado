@@ -1,4 +1,4 @@
-*! mixdom version 2.1.0 xx/xx/202x Joseph N. Luchman
+*! mixdom version 2.1.0 8/14/2023 Joseph N. Luchman
 
 version 15
 
@@ -102,6 +102,7 @@ Basic version
 - -xtmopt()- depreciated in favor of -mopt()-
  ---
  mixdom version 2.1.0 - mth day, year
-** (planned) minimum version 15 consistent with base -domin-
-** (planned) xtmopt defunct - gives warning
-** (planned) noconstant option removed
+ - minimum version 15 consistent with base -domin-
+ - xtmopt defunct - gives warning
+ - noconstant option removed
+ - returns e(smaple) to satisfy -domin- 3.5 requirements

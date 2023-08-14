@@ -1,4 +1,4 @@
-*! dominance.mata version 0.1.0  xx/xx/202x Joseph N. Luchman
+*! dominance.mata version 0.1.0  8/14/2023 Joseph N. Luchman
 
 **# Mata function to compute all combinations of predictors or predictor sets run all subsets regression, and compute all dominance criteria
 version 15

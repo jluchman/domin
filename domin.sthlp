@@ -1,11 +1,11 @@
 {smcl}
-{* *! version 4.0.0 mth day, 202x J. N. Luchman}{...}
+{* *! version 3.5.0 August 14, 2023 J. N. Luchman}{...}
 {cmd:help domin}
 
 {title:Title}
 
 {phang}
-{bf:domin} {hline 2} Dominance analysis: Single Equation Method
+{bf:domin} {hline 2} Dominance analysis
 
 
 {title:Syntax}
@@ -323,12 +323,13 @@ research also shows similarity between DA and {opt epsilon}-based methods in ter
 to general dominance statistics/Shapley values. Ultimately, the user is cautioned in the use of 
 {opt epsilon} as its speed may come at the cost of bias.
 
-{phang}{opt nosampleok} allows {cmd:domin} to proceed in computing dominance statistics despite the underlying 
+{phang}{opt noesampleok} allows {cmd:domin} to proceed in computing dominance statistics despite the underlying 
 command in {opt reg()} not setting the esimation sample. {cmd:domin} uses the {cmd:e(sample)} result to restrict 
 the observation prior to estimating all sub-models. This behavior is new as of version 3.5. 
 
-{pmore} When {opt nosampleok} is invoked, {cmd:domin} will attempt to mark the estimation sample using all variables 
-the {it:depvar} and {it:indepvars} lists as well as the {opt all()} and the {opt sets()} options.
+{pmore} When {opt noesampleok} is invoked, {cmd:domin} will attempt to mark the estimation sample using all variables 
+the {it:depvar} and {it:indepvars} lists as well as the {opt all()} and the {opt sets()} options. This is {cmd:domin}'s 
+approach to sample marking in versions prior to 3.5.
 
 {dlgtab:Reporting}
 
@@ -370,8 +371,6 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 {synopt:{cmd:e(fitstat)}}contents of the {opt fitstat()} option{p_end}
 {synopt:{cmd:e(reg)}}contents of the {opt reg()} option (before comma){p_end}
 {synopt:{cmd:e(regopts)}}contents of the {opt reg()} option (after comma){p_end}
-{synopt:{cmd:e(mi)}}{cmd:mi}{p_end}
-{synopt:{cmd:e(miopt)}}contents of the {opt miopt()} option{p_end}
 {synopt:{cmd:e(estimate)}}estimation method ({cmd:dominance} or {cmd:epsilon}){p_end}
 {synopt:{cmd:e(properties)}}{cmd:b}{p_end}
 {synopt:{cmd:e(depvar)}}name of dependent variable{p_end}
@@ -455,7 +454,7 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 
 {phang}Example 10: Multiply imputed dominance analysis using {cmd:mi_dom}{p_end}
 {phang} {stata webuse mheart1s20, clear} {p_end}
-{phang} {stata domin attack smokes age bmi hsgrad female, reg(mi_dom, mi_reg(logit) mi_fitstat(e(r2_p))) fitstat(e(fitstat))} {p_end}
+{phang} {stata domin attack smokes age bmi hsgrad female, reg(mi_dom, reg_mi(logit) fitstat_mi(e(r2_p))) fitstat(e(fitstat))} {p_end}
 {phang} Comparison dominance analysis without {cmd:mi} ("in 1/154" keeps only original observations for comparison as in 
 {bf:{help mi_intro_substantive:[MI] intro substantive}}) {p_end}
 {phang} {stata domin attack smokes age bmi hsgrad female in 1/154, reg(logit) fitstat(e(r2_p))} {p_end}
@@ -555,8 +554,8 @@ when they do not follow the traditional {it:depvar indepvars} format.  As long a
 be expressed in some way that can be evaluated in {it:depvar indepvars} format, any analysis could be 
 dominance analyzed. 
 
-{pstd}Any program used as a wrapper by {cmd:domin} must accept at least one optional argument and must accept 
-a {help if} statement in its {help syntax}.
+{pstd}Any program used as a wrapper by {cmd:domin} must accept an {help if} statement in its {help syntax}.
+It is recommended that wrapper programs parse the inputs as a {it:varlist} as well (see Example #9a).
 
 {pstd}A third wrapper program, {cmd:fitdom}, takes inspiration from the 
 {browse "https://CRAN.R-project.org/package=domir":R package domir} as it serves as a wrapper for a postestimation 
@@ -570,7 +569,7 @@ previous to 3.5  (see Example #10; see also {help mi_dom}).
 
 {pstd}This program allows multiply imputed model fit statistics to be used in place 
 of fit statistics with missing data. Use of multiply imputed fit statistics can 
-reduce the bias of coefficient estimates and dominance statistics.
+reduce the bias of coefficient estimates and dominance statistics when the imputation model is informative.
 
 {marker refs}{...}
 {title:7. References}

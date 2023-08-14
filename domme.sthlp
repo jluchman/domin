@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.2 mth day, 202x J. N. Luchman}{...}
+{* *! version 1.1.2 August 14, 2023 J. N. Luchman}{...}
 {cmd:help domme}
 
 {title:Title}
