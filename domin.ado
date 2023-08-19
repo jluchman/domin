@@ -1,12 +1,24 @@
-*! domin version 3.4.2  3/7/2023 Joseph N. Luchman
+*! domin version 3.5.0  8/14/2023 Joseph N. Luchman
+// version information at end of file
 
+**# Pre-program definition
 quietly include dominance.mata, adopath
 
-program define domin, eclass //history and version information at end of file
+program define domin, eclass 
 
-version 12.1
+if `c(version)' < 15 {
+	
+	display "{err}As of {cmd:domin} version 3.5.0, the minimum version of Stata is 15." _newline ///
+	"If you have an older version of Stata, most functionality of {cmd:domin} is available from" _newline ///
+	`"{stata net install st0645:this} Stata journal article back to version 12."'
+	
+	exit 198
+	
+}
 
-if replay() { //replay results - error if "by"
+version 15
+
+if replay() {
 
 	if ("`e(cmd)'" != "domin") error 301
 	
@@ -18,426 +30,32 @@ if replay() { //replay results - error if "by"
 	
 }
 
-syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , [Reg(string) Fitstat(string) Sets(string) /// define syntax
-All(varlist fv ts) noCOMplete noCONditional EPSilon mi miopt(string) CONSmodel REVerse]
-
-/*defaults and warnings*/
-if !strlen("`reg'") { //if no "reg" option specified - notify and use default "regress"
-
-	local reg "regress"	
+**# Program definition and argument checks
+syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , ///
+	[Reg(string) Fitstat(string) Sets(string) All(varlist fv ts) ///
+	noCONditional noCOMplete EPSilon CONSmodel REVerse noESAMPleok mi miopt(string)] // remove direct mi support - make it into a wrapper
 	
-	display "{err}Regression type not entered in {opt reg()}. " _newline ///
-	"{opt reg(regress)} assumed." _newline
-	
-}
-
-if !strlen("`fitstat'") & !strlen("`epsilon'") { //if no "fitstat" and "epsilon" options specified - notify and make default "e(r2)"
-
-	local fitstat "e(r2)"
-	
-	display "{err}Fitstat type not entered in {opt fitstat()}. " _newline ///
-	"{opt fitstat(e(r2))} assumed." _newline
-	
-}
-
-if strlen("`epsilon'") & strlen("`fitstat'") {	//warning if any "reg" or "fitstat" option specified with "epsilon"
-
-	display "{err}Option {opt epsilon} cannot be used with {opt fitstat(e(r2))}." _newline ///
-	"Entries in {opt fitstat()} ignored." _newline
-
-}
-
-if !strlen("`mi'") & strlen("`miopt'") {	//warning if "miopt" is used without "mi"
-
-	local mi "mi"
-	
-	display "{err}You have added {cmd:mi estimate} options without adding the {opt mi} option.  {opt mi} assumed." _newline
-
-}
-
-/*exit conditions*/
-if strlen("`epsilon'") & strlen("`sets'") {	//"epsilon" and "sets" cannot go together 
-
-	display "{err}Options {opt epsilon} and {opt sets()} not allowed together."
-	
-	exit 198
-
-}
-
-if strlen("`epsilon'") & strlen("`all'") {	//"epsilon" and "all" cannot go together
-
-	display "{err}Options {opt epsilon} and {opt all()} not allowed together."
-	
-	exit 198
-
-}
-
-if strlen("`epsilon'") & strlen("`consmodel'") {	//"epsilon" and "consmodel" cannot go together
-
-	display "{err}Options {opt epsilon} and {opt consmodel} not allowed together."
-	
-	exit 198
-
-}
-
-if strlen("`epsilon'") & strlen("`reverse'") 	///"epsilon" and "reverse" cannot go together
-display "{err}Options {opt epsilon} and {opt reverse} not allowed together." _newline ///
-"{opt reverse} ignored."
-	
-
-if strlen("`epsilon'") & strlen("`weight'") {	//"epsilon" disallows weights
-
-	display "{err}Option {opt epsilon} does not allow {opt weight}s."
-	
-	exit 198
-
-}
-
-if strlen("`epsilon'") & strlen("`mi'") {	//"epsilon" and multiple imputation options cannot go together
-
-	display "{err}Options {opt epsilon} and {opt mi} not allowed together."
-	
-	exit 198
-
-}
-
-if strlen("`mi'") {	//are data actually mi set?
-
-	capture mi describe
-
-	if _rc {	//if data are not mi set
-
-		display "{err}Data are not {cmd:mi set}."
-	
-		exit `=_rc'
-		
-	}
-	
-	if !r(M) {	//exit if no imputations
-	
-		display "{err}No imputations for {cmd:mi estimate}." _newline
-		
-		exit 2001
-	
-	}
-
-}
-
-capture which lmoremata.mlib	//is moremata present?
-
-if _rc {	//if moremata cannot be found, tell user to install it.
-
-	display "{err}Module {cmd:moremata} not found.  Install {cmd:moremata} here {stata ssc install moremata}."
-	
-	exit 198
-
-}
-
-/*disallow complete and conditional with epsilon option*/
 if strlen("`epsilon'") {
-
+	local esampleok "esampleok"
 	local conditional "conditional"
-	
 	local complete "complete"
-	
 }
 
-/*general set up*/
-if strlen("`mi'") tempfile mifile	//produce a tempfile to store imputed fitstats for retreival
-
-tempname ranks domwgts sdomwgts	cdldom cptdom //temporary matrices for results
-
-gettoken dv ivs: varlist	//parse varlist line to separate out dependent from independent variables
-
-gettoken reg regopts: reg, parse(",")	//parse reg() option to pull out estimation command options
-
-if strlen("`regopts'") gettoken erase regopts: regopts, parse(",")	//parse out comma if one is present
-
-local diivs "`ivs'"	//create separate macro to use for display purposes
-
-local mkivs "`ivs'"	//create separate macro to use for sample marking purposes
-
-if `:list sizeof sets' {	//parse and process the sets if included
-
-	/*pull out set #1 from independent variables list*/
-	gettoken one two: sets, bind	//pull out the first set
+if strlen("`mi'") | strlen("`mi'") {
 	
-	local setcnt = 1	//give the first set a number that can be updated as a macro
-	
-	local one = regexr("`one'", "[/(]", "")	//remove left paren
-			
-	local one = regexr("`one'", "[/)]", "")	//remove right paren
-	
-	local set1 `one'	//name and number set
-	
-	local ivs "`ivs' <`set1'>"	//include set1 into list of independent variables, include characters for binding in Mata
-	
-	local mkivs `mkivs' `set1'	//include variables in set1 in the mark sample independent variable list
-	
-	local diivs "`diivs' set1"	//include the name "set1" into list of variables
-	
-	
-	while strlen("`two'") {	//continue parsing beyond set1 so long at sets remain to be parsed (i.e., there's something in the macro "two")
-
-		gettoken one two: two, bind	//again pull out a set
-			
-		local one = regexr("`one'", "[/(]", "")	//remove left paren
-		
-		local one = regexr("`one'", "[/)]", "")	//remove right paren
-	
-		local set`++setcnt' `one'	//name and number set - advance set count by 1
-		
-		local ivs "`ivs' <`set`setcnt''>"	//include further sets - separated by binding characters - into independent variables list
-		
-		local mkivs `mkivs' `set`setcnt''	//include sets into mark sample independent variables list
-		
-		local diivs "`diivs' set`setcnt'"	//include set number into display list
-				
-	}
-			
-}
-
-
-if `:list sizeof ivs' < 2 {	//exit if too few predictors/sets (otherwise prodices cryptic Mata error)
-
-	display "{err}{cmd:domin} requires at least 2 independent variables or independent variable sets."
-	
+	display "{err}{cmd:mi} and {opt miopt()} are depreciated. Please use " ///
+		"{help mi_dom}."
 	exit 198
-
+	
 }
 
-/*finalize setup*/
-tempvar touse keep	//declare sample marking variables
-
-tempname obs allfs consfs	//declare temporary scalars
-
-mark `touse'	//declare marking variable
-
-quietly generate byte `keep' = 1 `if' `in' //generate tempvar that adjusts for "if" and "in" statements
-
-markout `touse' `dv' `mkivs' `all' `keep'	//do the sample marking
-
-local nobindivs = subinstr("`ivs'", "<", "", .)	//take out left binding character(s) for use in adjusting e(sample) when obs are dropped by an anslysis
-
-local nobindivs = subinstr("`nobindivs'", ">", "", .)	//take out right binding character(s) for use in adjusting e(sample) when obs are dropped by an anslysis
-
-if !strlen("`epsilon'") {	//don't invoke program checks if epsilon option is invoked
-
-	if !strlen("`mi'") capture `reg' `dv' `nobindivs' `all' [`weight'`exp'] if `touse', `regopts'	//run overall analysis - probe to check for e(sample) and whether everything works as it should
-
-	else {
-
-		capture mi estimate, saving(`mifile') `miopt': `reg' `dv' `nobindivs' `all' [`weight'`exp'] if `keep', `regopts'	//run overall analysis with mi prefix - probe to check for e(sample) and whether everything works as it should
-
-		if _rc {	//if something's amiss with mi...
+**# Wrapper process for -domin- processing in Mata
+mata: domin_2mata("`reg'", "`fitstat'", "`sets'", "`all'", ///
+	"`conditional'", "`complete'", "`epsilon'", "`consmodel'", "`reverse'", ///
+	"`esampleok'", "`weight'`exp'", "`in' `if'", "`varlist'")
 		
-			display "{err}Error in {cmd:mi estimate: `reg'}. See return code."
-		
-			exit `=_rc'
-			
-		}
-		
-		else estimates use `mifile', number(`:word 1 of `e(m_est_mi)'')	//if touse doesn't equal e(sample) - use e(sample) from first imputation and proceed
-	
-	}
-	
-	quietly count if `touse'	//tally up observations from count based on "touse"
-
-	if r(N) > e(N) & !strlen("`mi'") quietly replace `touse' = e(sample)	//if touse doesn't equal e(sample) - use e(sample) and proceed; not possible with multiple imputation though
-
-	if _rc {	//exit if regression is not estimable or program results in error - return the returned code
-
-		display "{err}{cmd:`reg'} resulted in an error."
-	
-		exit `=_rc'
-
-	}
-	
-	capture assert `fitstat' != .	//is the "fitstat" the user supplied actually returned by the command?
-	
-	if _rc {	//exit if fitstat can't be found
-
-		display "{err}{cmd:`fitstat'} not returned by {cmd:`reg'} or {cmd:`fitstat'} is not scalar valued. See {help return list}."
-	
-		exit 198
-
-	}
-
-	capture assert sign(`fitstat') != -1	//what is the sign of the fitstat?  domin works best with positive ones - warn and proceed
-
-	if _rc {
-
-		display "{err}{cmd:`fitstat'} returned by {cmd:`reg'}." _newline ///
-		"is negative.  {cmd:domin} is programmed to work best" _newline ///
-		"with positive {opt fitstat()} summary statistics." _newline
-
-	}
-	
-}
-
-if !inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {	//if weights don't affect obs
-	
-	quietly count if `touse'	//tally up "touse" if not "mi"
-	
-	scalar `obs' = r(N)	//pull out the number of observations included
-	
-}
-
-else if inlist("`weight'", "iweight", "fweight") & !strlen("`mi'") {	//if the weights do affect obs
-
-	quietly summarize `=regexr("`exp'", "=", "")' if `touse'	//tally up "touse" by summing weights
-	
-	scalar `obs' = r(sum)	//pull out the number of observations included
-	
-}
-
-else {
-
-	quietly mi estimate, `miopt': regress `dv' `nobindivs' `all' [`weight'`exp'] if `keep'	//obtain estimate of obs when multiply imputed
-	
-	scalar `obs' = e(N)	//pull out the number of observations included
-
-}
- 
-/*begin estimation*/
-scalar `allfs' = 0	//begin by defining the fitstat of the "all" variables as 0 - needed for dominance() function
-
-if `:list sizeof all' {	//if there are variables in the "all" list
-	
-	if !strlen("`mi'") {	//when there is no "mi" option specified
-	
-		quietly `reg' `dv' `all' [`weight'`exp'] if `touse', `regopts'	//run analysis with "all" independent variables only
-	
-		scalar `allfs' = `fitstat'	//the resulting "fitstat" is then registered as the value to remove from other fitstats
-		
-	}
-	
-	else {	//if "mi" is specified
-	
-		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' `all' [`weight'`exp'] if `keep', `regopts'	//run mi analysis with "all" independent variables only
-	
-		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')	//call mi_dom program to average fitstats
-		
-		scalar `allfs' = r(passstat)	//the resulting average fitstat is then registered as the value to remove from other fitstats
-	
-	}
-
-}
-
-scalar `consfs' = 0	//begin by defining the fitstat of the constant-only model as 0 - needed for dominance() function
-
-if strlen("`consmodel'") {	//if the user desires to know what the baseline fitstat is
-	
-	if !strlen("`mi'") {	//if "mi" is not declared
-	
-		quietly `reg' `dv' [`weight'`exp'] if `touse', `regopts'	//conduct analysis without independent variables
-	
-		scalar `consfs' = `fitstat'	//return baseline fitstat
-		
-	}
-	
-	else {	//if "mi" is declared
-	
-		quietly mi estimate, saving(`mifile', replace) `miopt': `reg' `dv' [`weight'`exp'] if `keep', `regopts'	//conduct mi analysis without independent variables
-	
-		mi_dom, name(`mifile') fitstat(`fitstat') list(`=e(m_est_mi)')	//compute average fitstat
-		
-		scalar `consfs' = r(passstat)	//return average baseline fitstat
-	
-	}
-	
-	if `:list sizeof all' scalar `allfs' = `allfs' - `consfs'
-	
-}
-
-if strlen("`epsilon'") { //primary analysis when "epsilon" is invoked
-
-	if ("`reg'" == "mvdom") `reg' `dv' `ivs' if `touse', `regopts' `epsilon'	//invoke the epsilon version of mvdom
-
-	else mata: eps_ri("`dv' `ivs'", "`reg'", "`touse'", "`regopts'") //mata function to obtain epsilon-based estimates
-	
-	matrix `domwgts' = r(domwgts) //translate r-class matrix into temp matrix that domin expects
-	
-	matrix `sdomwgts' = `domwgts'*(1/r(fs))	//produce standardized relative weights (i.e., out of 100%)
-	
-	mata: st_matrix("`ranks'", mm_ranks(st_matrix("r(domwgts)")':*-1, 1, 1)')	//rank the relative weights
-
-}
-
-else {
-	
-	mata: model_specs = domin_specs()
-	
-	mata: model_specs.mi = st_local("mi")
-	mata: model_specs.reg = st_local("reg")
-	mata: model_specs.dv = st_local("dv")
-	mata: model_specs.all = st_local("all")
-	mata: model_specs.weight = st_local("weight")
-	mata: model_specs.exp = st_local("exp")
-	mata: model_specs.touse = st_local("touse")
-	mata: model_specs.regopts = st_local("regopts")
-
-	mata: dominance(model_specs, &domin_call(), ///
-		st_local("conditional'"), st_local("complete"), ///
-		st_local("ivs"), ///
-		st_numscalar(st_local("allfs")), st_numscalar(st_local("consfs"))) //invoke "dominance()" function in Mata 
-	
-	/*translate r-class results into temp results*/
-	matrix `domwgts' = r(domwgts)
-	
-	matrix `sdomwgts' = r(sdomwgts)
-	
-	matrix `ranks' = r(ranks)
-	
-	if !strlen("`conditional'") matrix `cdldom' = r(cdldom)
-	
-	if !strlen("`complete'") matrix `cptdom' = r(cptdom)
-	
-}
-
-/*display results - this section will not be extensively explained*/
-/*name matrices*/
-matrix colnames `domwgts' = `diivs'	
-
-if strlen("`reverse'") {	//if 'reverse', invert the direction and interpretation of rank and standardized weights
-
-	mata: st_matrix("`sdomwgts'", (st_matrix("`domwgts'"):*-1):/sum(st_matrix("`domwgts'"):*-1))
-	
-	mata: st_matrix("`ranks'", ((st_matrix("`ranks'"):-1):*-1):+cols(st_matrix("`ranks'")))
-
-}
-
-matrix colnames `sdomwgts' = `diivs'	
-
-matrix colnames `ranks' = `diivs'	
-
-if !strlen("`complete'") { 	
-
-	if strlen("`reverse'") mata: st_matrix("`cptdom'", st_matrix("`cptdom'"):*-1) //if 'reverse', invert the direction and interpretation of complete dominance
-
-	matrix colnames `cptdom' = `diivs'	
-	
-	matrix coleq `cptdom' = dominated?	
-	
-	matrix rownames `cptdom' = `diivs'	
-	
-	matrix roweq `cptdom' = dominates?	
-	
-}
-
-if !strlen("`conditional'") { 
-	
-	matrix rownames `cdldom' = `diivs'
-	
-	local colcdl `:colnames `cdldom''
-	
-	local colcdl = subinstr("`colcdl'", "c", "", .)
-	
-	matrix colnames `cdldom' = `colcdl'
-	
-	matrix coleq `cdldom' = #indepvars
-	
-}	
+**# Ereturn processing
+tempname domwgts cdldom cptdom stdzd ranks
 
 if !strlen("`epsilon'") & strlen("`e(title)'") local title "`e(title)'"
 
@@ -445,8 +63,18 @@ else if strlen("`epsilon'") & strlen("`e(title)'") local title "Epsilon-based `r
 
 else local title "Custom user analysis"
 
-/*return values*/
-ereturn post `domwgts' [`weight'`exp'], depname(`dv') obs(`=`obs'') esample(`touse')
+matrix `domwgts' = r(domwgts)
+ereturn post `domwgts' [`weight'`exp'], depname(`dv') obs(`=`r(N)'') esample(`touse')
+
+**# Ereturn scalars
+ereturn scalar N = `=r(N)'
+
+matrix `domwgts' = r(domwgts)*J(colsof(r(domwgts)), 1, 1)
+if strlen("`epsilon'") ereturn scalar fitstat_o = `=`domwgts'[1,1]'
+else ereturn scalar fitstat_o = `=`domwgts'[1,1] + r(allfs) + r(consfs)'
+
+if `:list sizeof all' ereturn scalar fitstat_a = `=r(allfs)'
+if strlen("`consmodel'") ereturn scalar fitstat_c = `=r(consfs)'
 
 if strlen("`setcnt'") {
 
@@ -464,6 +92,7 @@ if strlen("`setcnt'") {
 
 else ereturn hidden scalar setcnt = 0
 
+**# Ereturn macros
 ereturn hidden local dtitle "`title'"
 
 ereturn hidden local reverse "`reverse'"
@@ -480,14 +109,6 @@ if strlen("`epsilon'") ereturn local estimate "epsilon"
 
 else ereturn local estimate "dominance"
 
-if strlen("`mi'") {
-
-	if strlen("`miopt'") ereturn local miopt "`miopt'"
-
-	ereturn local mi "mi"
-
-}
-
 if strlen("`regopts'") ereturn local regopts `"`regopts'"'
 
 ereturn local reg `"`reg'"'
@@ -500,21 +121,32 @@ ereturn local title `"Dominance analysis"'
 
 ereturn local cmdline `"domin `0'"'
 
-ereturn scalar fitstat_o = r(fs)
+**# Ereturn matrices
+if !strlen("`complete'") {
+	matrix `cptdom' =  r(cptdom)
+	mata: st_matrixcolstripe("`cptdom'", ///
+		(J(cols(st_matrix("`cptdom'")), 1, "dominated?"), ///
+		st_matrixcolstripe("e(b)")[,2]))
+	mata: st_matrixrowstripe("`cptdom'", ///
+		(J(cols(st_matrix("`cptdom'")), 1, "dominates?"), ///
+		st_matrixcolstripe("e(b)")[,2]))
+	ereturn matrix cptdom = `cptdom'
+}
 
-if `:list sizeof all' ereturn scalar fitstat_a = `allfs'
+if !strlen("`conditional'") {
+	matrix `cdldom' = r(cdldom)
+	mata: st_matrixcolstripe("`cdldom'", ///
+		(J(cols(st_matrix("`cdldom'")), 1, "#indepvars"), ///
+		strofreal(1::cols(st_matrix("`cdldom'")))))
+	ereturn matrix cdldom = `cdldom'
+}
 
-if strlen("`consmodel'") ereturn scalar fitstat_c = `consfs'
+matrix `ranks' =  r(ranks)
+ereturn matrix ranking = `ranks'
 
-if !strlen("`conditional'") ereturn matrix cdldom `cdldom'
-	
-if !strlen("`complete'") ereturn matrix cptdom `cptdom'
+matrix `stdzd' =  r(stdzd)
+ereturn matrix std = `stdzd'
 
-ereturn matrix ranking `ranks'
-
-ereturn matrix std `sdomwgts'
-
-/*begin display*/
 Display
 
 end
@@ -522,7 +154,7 @@ end
 /*Display program*/
 program define Display
 
-version 12.1
+version 15
 
 tempname domwgts sdomwgts ranks
 
@@ -630,14 +262,14 @@ if e(estimate) == "dominance" & `=`cpttest'*`cdltest'' {
 	local names `:colnames e(b)'
 	
 	mata: display((select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==1):*" completely dominates "):+tokens(st_local("names")))', ///
-	regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==1):*" completely dominates "):+tokens(st_local("names")))', ///
-	"completely dominates")) , ///
-	select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==2):*" conditionally dominates "):+tokens(st_local("names")))', ///
-	regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==2):*" conditionally dominates "):+tokens(st_local("names")))', ///
-	"conditionally dominates")), ///
-	select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==3):*" generally dominates "):+tokens(st_local("names")))', ///
-	regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==3):*" generally dominates "):+tokens(st_local("names")))', ///
-	"generally dominates")))')
+		regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==1):*" completely dominates "):+tokens(st_local("names")))', ///
+		"completely dominates")) , ///
+		select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==2):*" conditionally dominates "):+tokens(st_local("names")))', ///
+		regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==2):*" conditionally dominates "):+tokens(st_local("names")))', ///
+		"conditionally dominates")), ///
+		select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==3):*" generally dominates "):+tokens(st_local("names")))', ///
+		regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==3):*" generally dominates "):+tokens(st_local("names")))', ///
+		"generally dominates")))')
 	
 	display ""
 
@@ -657,28 +289,579 @@ if strlen("`e(all)'") display "{txt}Variables included in all subsets: `e(all)'"
 
 end
 
-/*program to average fitstat across all multiple imputations for use in domin*/
-program define mi_dom, rclass
+**# Mata function adapting Stata input for Mata and initiating the Mata environment
+version 15
 
-version 12.1
+mata:
 
-syntax, name(string) fitstat(string) list(numlist)
+mata set matastrict on
 
-tempname passstat
-
-scalar `passstat' = 0 //placeholder scalar to hold the sum
-
-foreach x of numlist `list' {
-
-	estimates use `name', number(`x') //find the focal estimates
+void domin_2mata(
+	string scalar reg, 
+	string scalar fitstat, 
+	string scalar sets, 
+	string scalar all,
+	string scalar conditional, 
+	string scalar complete,
+	string scalar epsilon, 
+	string scalar consmodel, 
+	string scalar reverse,
+	string scalar esampleok,
+	string scalar weight,
+	string scalar inif, 
+	string scalar varlist
+	) {
 	
-	scalar `passstat' = `passstat' + `fitstat'*`:list sizeof list'^-1 //add in the weighted fitstat value
+	
+/* ~ declarations and initial structure */
+	class AssociativeArray scalar model_specs
+	
+	real scalar builtin, iv, set, rc, obs, 
+		full_fitstat, all_fitstat, cons_fitstat, index_count
+	
+	string scalar regopts, dv, marks
+	
+	string rowvector ivs, iv_sets, bltin_varlist, bltin_index, 
+		bltin_all
+	
+	real rowvector bltin_dvcor
+	
+	real matrix bltin_corrmat
+	
+	transmorphic parser
+	
+/* ~ argument checks ~ */
+	/*-domin- defaults*/
+	if ( (!strlen(reg) & !strlen(fitstat)) & !strlen(epsilon) ) {
+		
+		reg = "regress"
+		
+		fitstat = "e(r2)" 
+		
+		weight = 
+			subinword( subinword( weight, 
+				"pweight", "aweight"), "iweight", "aweight")
+		
+		builtin = 1
+		
+	}
+	else if ( (strlen(reg) & strlen(fitstat)) | strlen(epsilon) )  builtin = 0
+	else {
+		
+		display("Both {opt reg()} and {opt fitstat()} must be chosen or " +
+			"neither as of {cmd:domin} version 3.5.")
+		exit(198)
+		
+	}
+	
+	/*'epsilon' specifics*/
+	if ( strlen(epsilon) ) {
+		
+		/*exit conditions: user must restructure*/
+		if ( strlen(all + sets) ) { 									
+			
+			display("{err}{opt epsilon} not allowed with" + 
+					" {opt all()} or {opt sets()}.")
+			exit(198) 															
+				
+		}
+		
+	}	
+	
+/* ~ process iv and sets ~ */
+	/*parse varlist - store as 'ivs'*/
+	ivs = tokens(varlist)
+	
+	/*'dv ivs' structure means first entry is 'dv'*/
+	dv = ivs[1]
+	
+	/*remaining entries, if any, are 'ivs'*/
+	if ( length(ivs) > 1 ) ivs = ivs[2..length(ivs)]							
+	else ivs = ""
+	
+	/*set processing*/
+	if ( strlen(sets) ) {
+		/*setup parsing sets -  bind on parentheses*/
+		parser = tokeninit(" ", "", "()")
+		tokenset(parser, sets)
+		
+		/*get all sets and remove parentehses*/
+		iv_sets = tokengetall(parser)
+		iv_sets = substr(iv_sets, 2, strlen(iv_sets):-2)
+		st_local("setcnt", strofreal( length(iv_sets) ) )
+		for (set=1; set<=length(iv_sets); set++) {
+			
+			st_local("set"+strofreal(set), iv_sets[set] )
+			
+			rc = _stata("fvunab waste: " + iv_sets[set], 1)
+			if ( rc ) {
+				display("{err}Problem with variables in set position " + strofreal(set) + ": " + iv_sets[set])
+				exit(111)
+			}
+			
+		}
+		
+		/*combine to single iv vector*/
+		if ( length(ivs) > 1 ) ivs = (ivs, iv_sets)
+		else ivs = iv_sets
+	
+	}
+	
+	if ( length(ivs) < 2 | ivs == "") {	
 
+		stata("display " + char(34) + 
+			"{err}{cmd:domin} requires at least 2 independent variables or independent variable sets." + 
+			char(34))
+		exit(198)
+		
+	}
+
+/* ~ parse regression options ~ */
+	parser = tokeninit(" ", ",")
+	
+	tokenset(parser, strtrim(reg))
+	
+	reg = tokenget(parser)
+	
+	if ( length(tokenrest(parser)) ) regopts = substr(tokenrest(parser), 2)
+	else regopts = ""
+	
+/* ~ check primary analysis and set estimation sample ~ */
+	if ( !strlen(epsilon) ) {
+		
+		st_eclear()
+		
+		if (inif == " ") inif = "if _n > 0"
+		
+		rc = _stata(reg + " " + dv + " " + invtokens(ivs) + " " + all +  
+			" [" + weight + "] " + inif + ", " + regopts, 1)
+		
+		if ( rc ) {
+			
+			display("{err}{cmd:" + reg + "} resulted in an error.")
+			exit(rc)
+
+		}
+		
+		if ( !length( st_numscalar( strtrim(fitstat) ) ) )	{
+		
+			display("{err}{cmd:" + fitstat + 
+				"} not returned by {cmd:" + reg + "} or {cmd:" + fitstat + 
+				"} is not scalar valued. See {help return list}.")
+			exit(198)
+
+		}
+		else full_fitstat = st_numscalar( strtrim(fitstat) ) 
+		
+		marks = st_tempname()
+		
+		stata("generate byte " + marks[1] + " = e(sample)", 1)
+		
+		stata("count if " + marks[1], 1)
+		
+		obs = st_numscalar("r(N)")
+	
+	}
+	else obs = 0
+
+	if (obs == 0 & strlen(esampleok) ) 	{
+	
+		marks = st_tempname(2)
+
+		stata("mark " + marks[1]) 
+		
+		stata("generate byte " + marks[2] + " = 1 " + inif, 1)
+			
+		stata("markout " + marks[1] + " " + marks[2] + 
+			" " + invtokens(ivs) + " " + all, 1)
+			
+		stata("count if " + marks[1], 1)
+			
+		obs = st_numscalar("r(N)")
+	
+	}
+	
+	if (obs == 0 & !strlen(esampleok)) {
+		
+		display("{err}{cmd:esample()} not set. Use {opt noesampleok} to avoid checking {cmd:esample()}.")
+		exit(198)
+	}
+	
+/* ~ built-in linear regression-based model ~ */
+	if ( builtin ) { 
+		
+		bltin_varlist = bltin_index = J(1, length(ivs), "")
+		index_count = 1
+		
+		for (iv = 1; iv <= length(ivs); iv++) {
+			
+			stata("fvexpand " + ivs[iv], 1)
+			
+			if ( strlen( st_macroexpand("`" + "r(fvops)" + "'") ) | 
+				strlen( st_macroexpand("`" + "r(tsops)" + "'") ) ) {
+					
+				bltin_index[iv] = st_macroexpand("`" + "r(varlist)" + "'")
+				
+				stata("fvrevar " + ivs[iv], 1)
+		
+				bltin_varlist[iv] = st_macroexpand("`" + "r(varlist)" + "'")
+				
+				if ( any( 
+					strmatch( tokens(bltin_index[iv]) , "*b.*") ) ) 
+						bltin_varlist[iv] = 
+							invtokens( 
+								select( tokens(bltin_varlist[iv]),  
+									!strmatch( tokens(bltin_index[iv]) , "*b.*") ) )
+				
+				bltin_index[iv] = 
+					invtokens( 
+						strofreal((index_count..index_count+length( tokens( bltin_varlist[iv] ) 
+					)-1 ) ) )
+				
+				index_count = index_count + length( tokens( bltin_varlist[iv] ) )
+				
+			}
+			else {
+				
+				bltin_varlist[iv] = ivs[iv]
+				
+				bltin_index[iv] = strofreal(index_count)
+			
+				index_count++
+				
+			}
+			
+		}
+		
+		if ( strlen(all) )  {
+			
+			bltin_all = 
+				strofreal( ( index_count..index_count+length(tokens(all))-1 ) )
+				
+			index_count = index_count + length( tokens(all) )
+			
+		}
+		else bltin_all = ""
+		
+		if (regexm(weight, "^[pi]weight=")) 
+			weight = regexr(weight, "^[pi]weight=", "aweight=")
+		
+		stata("correlate " + invtokens(bltin_varlist) + " " + all + 
+			" [" + weight + "] if " + marks[1], 1)
+			
+		bltin_corrmat = st_matrix("r(C)")
+		
+		stata("correlate " + dv + " " + invtokens(bltin_varlist) + 
+			" " + all + " [" + weight + "] if " + marks[1], 1)
+		
+		bltin_dvcor = st_matrix("r(C)")[1, 2..index_count]
+				
+	}
+
+/* ~ begin collecting effect sizes ~ */
+	all_fitstat = 0	
+	
+	if ( strlen(all) ) {
+			
+		stata(reg + " " + dv + " " + all + " [" + weight + "] if " + marks[1] + 
+			", " + regopts, 1)
+	
+		all_fitstat = st_numscalar( strtrim(fitstat) )
+
+	}
+	
+	cons_fitstat = 0	
+	
+	if ( strlen(consmodel) ) {
+			
+		stata(reg + " " + dv + " [" + weight + "] if " + marks[1] + 
+			", " + regopts, 1)
+				
+		cons_fitstat = st_numscalar( strtrim(fitstat) )
+			
+		
+	}
+	
+	if ( strlen(all) ) all_fitstat = all_fitstat - cons_fitstat
+	
+	full_fitstat = full_fitstat - all_fitstat - cons_fitstat
+	
+	
+/* ~ invoke dominance ~ */	
+	if ( strlen(epsilon) ) {
+
+		if (reg == "mvdom") 
+			stata("mvdom " + dv + " " + invtokens(ivs) + " if " + 
+				marks[1] + ", " + regopts + " epsilon", 1)
+		else eps_ri(dv + " " + invtokens(ivs), reg, 
+			marks[1], regopts, 
+			( length(tokens(weight, "=")) == 3 ) ? 
+				tokens(weight, "=")[3] : "") 
+		
+	}
+	else if ( builtin ) {
+		
+		model_specs.put("corrmat", bltin_corrmat)
+		model_specs.put("dvcor", bltin_dvcor)
+		
+		model_specs.put("all", bltin_all)
+		model_specs.put("all_fitstat", all_fitstat)
+		model_specs.put("cons_fitstat", 0)
+		
+		dominance(
+			model_specs, &domin_regress(), 
+			bltin_index', conditional, complete, full_fitstat )
+			
+	}
+	else {
+		
+		model_specs.put("reg", reg)
+		model_specs.put("fitstat", fitstat)
+		model_specs.put("weight", weight)
+		model_specs.put("touse", marks[1])
+		model_specs.put("regopts", regopts)
+		
+		model_specs.put("all", all)
+		model_specs.put("dv", dv)
+		
+		model_specs.put("consmodel", consmodel)
+		model_specs.put("reverse", reverse)
+		
+		model_specs.put("all_fitstat", all_fitstat)
+		model_specs.put("cons_fitstat", cons_fitstat)
+		
+		dominance(
+			model_specs, &domin_call(), 
+			ivs', conditional, complete, full_fitstat )
+			
+	}
+/* ~ return values ~ */	
+	if ( length(iv_sets) )
+		ivs[(( length(ivs)-length(iv_sets)+1 )..length(ivs))] = 
+			"set":+( strofreal( (1..length(iv_sets)) ) )
+	
+	st_matrixcolstripe("r(domwgts)", (J(length(ivs), 1, ""), ivs') )
+	
+	if ( strlen(reverse) )
+		st_matrix("r(cptdom)", 
+			 st_matrix("r(cptdom)"):*-1 )
+	
+	if ( !strlen(conditional) ) st_matrixrowstripe("r(cdldom)", (J(length(ivs), 1, ""), ivs') )
+	
+	if ( !strlen(complete) ) {
+		st_matrixrowstripe("r(cptdom)", (J(length(ivs), 1, ""), ivs') )
+		st_matrixcolstripe("r(cptdom)", (J(length(ivs), 1, ""), ivs') )
+	}
+			
+	st_matrix("r(stdzd)", 
+		(st_matrix("r(domwgts)")):/(sum(st_matrix("r(domwgts)") ) ) ) 
+	st_matrixcolstripe("r(stdzd)", (J(length(ivs), 1, ""), ivs') )
+			
+	st_matrix("r(ranks)", 
+		colsum( 
+			J(cols(st_matrix("r(domwgts)")), 
+				1, st_matrix("r(domwgts)") ):<=(st_matrix("r(domwgts)")') 
+			) )
+	if ( strlen(reverse) ) 
+		st_matrix("r(ranks)", 
+			colsum( 
+				J(cols(st_matrix("r(domwgts)")), 
+					1, st_matrix("r(domwgts)") ):>=(st_matrix("r(domwgts)")') 
+				) )
+	st_matrixcolstripe("r(ranks)", (J(length(ivs), 1, ""), ivs') )
+		
+	st_numscalar("r(N)", obs)
+		
+	st_local("reg", reg)
+	st_local("regopts", regopts)
+	st_local("touse", marks[1])
+	st_local("dv", dv)
+	
+	st_numscalar("r(allfs)", model_specs.get("all_fitstat"))
+	st_numscalar("r(consfs)", model_specs.get("cons_fitstat"))
+	
 }
 
-return scalar passstat = `passstat' //average fitstat = the MI'd fitstat
+end
+
+**# Mata function to execute 'domin-flavored' models
+version 15
+
+mata:
+
+	mata set matastrict on
+
+	real scalar domin_call(string scalar IVs_in_model,
+		class AssociativeArray scalar model_specs) { 
+
+		real scalar fitstat
+
+		stata(model_specs.get("reg") + " " + model_specs.get("dv") + " " + 
+			model_specs.get("all") + " " + IVs_in_model + " [" + 
+			model_specs.get("weight") + "] if " + 
+			model_specs.get("touse") + ", " + model_specs.get("regopts"), 1)
+
+		fitstat = st_numscalar(model_specs.get("fitstat")) - 
+			model_specs.get("all_fitstat") - 
+			model_specs.get("cons_fitstat")
+
+		return(fitstat)
+
+	}
+	
+end
+
+**# Mata function to execute built-in linear regression
+version 15
+
+mata:
+
+	mata set matastrict on
+
+	real scalar domin_regress(string scalar IVs_in_model,
+		class AssociativeArray scalar model_specs) { 
+
+		real scalar fitstat
+		
+		real rowvector index
+		
+		real colvector coeffs
+		
+		real matrix analysis_mat
+		
+		index = 
+			strtoreal( 
+				tokens( 
+					invtokens( (IVs_in_model, model_specs.get("all") ) ) 
+				) )
+				
+		coeffs = 
+			qrsolve(
+				model_specs.get("corrmat")[index, index], 
+				model_specs.get("dvcor")[index]' )
+		
+		fitstat = model_specs.get("dvcor")[index]*coeffs - 
+			model_specs.get("all_fitstat")
+
+		return(fitstat)
+
+	}
+	
+end
+
+**# Mata function to execute epsilon-based relative importance
+version 12
+
+mata: 
+
+mata set matastrict on
+
+void eps_ri(string scalar varlist, string scalar reg, 
+	string scalar touse, string scalar regopts, string scalar weight) 
+{
+	/*object declarations*/
+	real scalar rc
+	
+	real matrix X, L, R, Lm, L2, R2, orth
+
+	real rowvector V, Bt, V2, glmwgts, varloc
+	
+	string rowvector orthnames
+	
+	real scalar sd_yhat, cor_yhat
+	
+	string scalar predmu, wgt_stmnt
+	
+	transmorphic view, wgt_view, mu_view
+	
+	/*begin processing*/
+	st_view(view, ., tokens(varlist), st_varindex(touse))
+	
+	if ( strlen(weight) ) st_view(wgt_view, ., weight, st_varindex(touse))
+	else wgt_view = 1
+	
+	X = correlation(view, wgt_view) //obtain correlations
+	
+	L = R = X[2..rows(X), 2..cols(X)] //set-up for svd()
+	
+	V = J(1, cols(X)-1, .) //placeholder for eigenvalues
+	
+	svd(X[2..rows(X), 2..cols(X)], L, V, R) //conduct singular value decomposition
+	
+	Lm = (L*diag( sqrt(V) )*R) //process orthogonalized predictors
+	
+	if (reg == "regress") Bt = invsym(Lm)*X[2..rows(X), 1] //obtain adjusted regression weights
+	
+	else if (reg == "glm") { //if glm-based...
+	
+		svd(
+			( view[., 2..cols(view)]:-mean( 
+				view[., 2..cols(view)] ) ):/( sqrt( diagonal( variance( 
+					view[., 2..cols(view)] ) ) )' ),
+		L2, V2, R2)
+		
+		orth = L2*R2 //produce the re-constructed orthogonal predictors for use in regression
+		
+		orth = (orth:-mean(orth)):/sqrt( diagonal( variance(orth) ) )' //standardize the orthogonal predictors
+		
+		orthnames = st_tempname( cols(orth) )
+		
+		varloc = st_addvar("double", orthnames) //generate some tempvars for Stata
+		
+		st_store(., orthnames, st_varindex(touse), orth) //put the orthogonalized variables in Stata
+		
+		if ( strlen(weight) ) wgt_stmnt = " [iweight="
+		else wgt_stmnt = " ["
+		
+		rc = _stata("glm " + tokens(varlist)[1] + " " + 
+			invtokens(orthnames) + wgt_stmnt + weight + "] if " + 
+			touse + ", " + regopts, 1) //conduct the analysis
+
+		if ( rc ) {
+		
+			display("{err}{cmd:" + reg + "} failed when executing {cmd:epsilon}.")
+		
+			exit( rc )
+			
+		}
+		
+		glmwgts = st_matrix("e(b)") //record the regression weights to standardize
+		
+		predmu = st_tempname() //generate some more tempvars for Stata
+		
+		sd_yhat = sqrt( variance(orth*glmwgts[1, 1..cols(glmwgts)-1]') ) //SD of linear predictor
+		
+		stata("predict double " + predmu + " if " + touse + ", mu", 1) //translated with link function
+		
+		st_view(mu_view, ., st_varindex(predmu), st_varindex(touse))
+		
+		cor_yhat = correlation((view[., 1], mu_view), wgt_view)
+		
+		Bt = (glmwgts[1, 1..cols(glmwgts)-1]:*((cor_yhat[2, 1])/(sd_yhat)))'
+
+	}
+	
+	else { //asked for invalid reg
+	
+		display("{err}{opt reg(" + reg + ")} invalid with {opt epsilon}.")
+	
+		exit(198)
+		
+	}
+	
+	Bt = Bt:^2 //square values of regression weights
+	
+	Lm = Lm:^2 //square values of orthogonalized predictors
+
+	st_matrix("r(domwgts)", (Lm*Bt)')	//produce proportion of variance explained and put into Stata
+	
+}
 
 end
+
+/* programming notes and history
+- domin_se version 0.0.0 - date - mth day, year
+
 
 /* programming notes and history
 - domin version 1.0 - date - April 4, 2013
@@ -750,4 +933,18 @@ end
 	- records domin options directly (doesn't call them as local macros)
  // 3.4.2 - March 7, 2023
  - call 'dominance.mata' as opposed to using 'lb_dominance.mlib' to allow backward compatability
+ ---
+ domin version 3.5.0 - August 14, 2023
+ - most of command migrated to Mata - minimum supported version is 15
+	- argument check changes - new requirement that underlying command has e(sample)
+    - remove support for -mi- make it a wrapper like fitdom()
+	- remove dependency on -moremata-
+ - built-in linear regression/-regress- function for speedier DA
+ - updates to dominance.mata (to 0.1.0)
+	- updated 'epsilon' method to use st_view() instead of st_data()
+	- 'epsilon' method accepts weights
+ ** 
+ ---
+ future domin
+ ** planned ** - depreciated by -domin2-'s bmaregress interface; eventually will be defunct and enveloped by its interface
  */

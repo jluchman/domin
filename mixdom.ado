@@ -1,23 +1,20 @@
-*! mixdom version 2.0 2/15/2021 Joseph N. Luchman
+*! mixdom version 2.1.0 8/14/2023 Joseph N. Luchman
 
-version 12
+version 15
 
 program define mixdom, eclass
 
-syntax varlist(min = 2 fv ts) [pw fw] if, id(varlist max = 1 min = 1) [REopt(string) XTMopt(string) ///
-Mopt(string) noConstant]
+syntax varlist(min = 2 fv ts) [pw fw] [if], id(varlist max = 1 min = 1) [REopt(string) XTMopt(string) ///
+Mopt(string)]
 
-if strlen("`xtmopt'") & strlen("`mopt'") {
-    display as err "{cmd:xtmopt} both {cmd:mopt} cannot be used together"
+if strlen("`xtmopt'")  {
+    display as err "{cmd:xtmopt()} is defunct. Use {cmd:mopt()}."
 	exit 198
 }
 
-if c(stata_version) >= 13 local reg "mixed"
-else local reg "xtmixed"
-
-if strlen("`xtmopt'") local mopt "`xtmopt'"
-
 tempname estmat r2w r2b base_e base_u mean_h
+
+tempvar touse
 
 gettoken dv ivs: varlist
 
@@ -29,13 +26,11 @@ foreach temp in base_e base_u mean_h {
 
 }
 
-`reg' `dv' `ivs' [`weight'`exp'] `if' , `constant' || `id':, `reopt' `mopt' nostderr
+mixed `dv' `ivs' [`weight'`exp'] `if' , `constant' || `id':, `reopt' `mopt' nostderr
 
 matrix `estmat' = e(b)
 
 scalar `r2w' = (exp(`estmat'[1, `=colsof(`estmat') - 1']))^2 + (exp(`estmat'[1, `=colsof(`estmat')']))^2
-
-di `r2w'
 
 if missing(`mean_h') {
 
@@ -55,11 +50,9 @@ if missing(`mean_h') {
 
 scalar `r2b' = (exp(`estmat'[1, `=colsof(`estmat') - 1']))^2 + ((exp(`estmat'[1, `=colsof(`estmat')']))^2)/`mean_h'
 
-di `r2b'
-
 if missing(`base_e') | missing(`base_u') {
 
-	`reg' `dv' [`weight'`exp'] `if' , `constant' || `id':, `reopt' `mopt' nostderr
+	mixed `dv' [`weight'`exp'] `if' , `constant' || `id':, `reopt' `mopt' nostderr
 
 	matrix `estmat' = e(b)
 
@@ -73,19 +66,25 @@ scalar `r2w' = 1 - ((exp(`base_u'))^2 + (exp(`base_e'))^2)^-1*`r2w'
 
 scalar `r2b' = 1 - ((exp(`base_u'))^2 + ((exp(`base_e'))^2)/`mean_h')^-1*`r2b'
 
-ereturn scalar r2_w = `r2w'
+generate `touse' =  e(sample)
 
-di `r2w'
+ereturn clear
+
+ereturn post, esample(`touse')
+
+ereturn scalar r2_w = `r2w'
 
 ereturn scalar r2_b = `r2b'
 
-di `r2b'
+ereturn local title = "Mixed-effects ML regression"
 
-ereturn scalar base_e = `base_e'
+ereturn hidden scalar base_e = `base_e' // note to self - make these hidden not official returned values
 
-ereturn scalar base_u = `base_u'
+ereturn hidden scalar base_u = `base_u'
 
-ereturn scalar mean_h = `mean_h'
+ereturn hidden scalar mean_h = `mean_h'
+
+// note to self - return esample and title
 
 end
 
@@ -99,6 +98,11 @@ Basic version
 - time series operators allowed
 - removed scalars persisting after estimation
 -----
-- mixdom version 2.0.1 - date - Feb 15, 2021
+- mixdom version 2.0 - date - Feb 15, 2021
 - -xtmopt()- depreciated in favor of -mopt()-
--- v12...
+ ---
+ mixdom version 2.1.0 - mth day, year
+ - minimum version 15 consistent with base -domin-
+ - xtmopt defunct - gives warning
+ - noconstant option removed
+ - returns e(smaple) to satisfy -domin- 3.5 requirements

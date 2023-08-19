@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.0.0 November 21, 2021 J. N. Luchman}{...}
+{* *! version 0.1.0 August 14, 2023 J. N. Luchman}{...}
 {cmd:help fitdom}
 {hline}{...}
 
@@ -17,9 +17,9 @@ Wrapper program for {cmd:domin} to obtain fit statistics from postestimation com
 {opt {ul on}f{ul off}itstat_fd(scalar)}
 
 {phang}
-{help fvvarlist: Factor} and {help tsvarlist:time series variables} are allowed for commands in {opt reg()} 
+{help fvvarlist: Factor} and {help tsvarlist:time series variables} are allowed for commands in {opt reg_fd()} 
 that accept them. {cmd:aweight}, {cmd:iweight}s, {cmd:pweight}s, and {cmd:fweight}s are also allowed 
-(see help {help weights:weights}) for commands in {opt reg()} that accept them.
+(see help {help weights:weights}) for commands in {opt reg_fd()} that accept them.
 
 {title:Description}
 
@@ -52,7 +52,7 @@ to {cmd:domin}.
 
 {title:Saved results}
 
-{phang}{cmd:fitdom} saves the following results to {cmd: e()}:
+{phang}{cmd:fitdom} retains all the results from the command in {opt reg_fd()} and adds the following results to {cmd: e()}:
 
 {synoptset 16 tabbed}{...}
 {p2col 5 15 19 2: scalars}{p_end}
@@ -134,7 +134,7 @@ matrix name (i.e., {cmd:r(S)}) but also the matrix subscript selecting the AIC i
 {title:Author}
 
 {p 4}Joseph N. Luchman{p_end}
-{p 4}Senior Scientist{p_end}
-{p 4}Fors Marsh Group LLC{p_end}
+{p 4}Principal Scientist{p_end}
+{p 4}Fors Marsh{p_end}
 {p 4}Arlington, VA{p_end}
-{p 4}jluchman@forsmarshgroup.com{p_end}
+{p 4}jluchman@forsmarsh.com{p_end}

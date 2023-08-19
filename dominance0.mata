@@ -1,39 +1,72 @@
-*! dominance.mata version 0.1.0  8/14/2023 Joseph N. Luchman
+*! dominance0.mata version 0.0.0  8/11/2023 Joseph N. Luchman
 
-**# Mata function to compute all combinations of predictors or predictor sets run all subsets regression, and compute all dominance criteria
 version 15
 
+**# Container object for domin specs
+mata:
+
+mata set matastrict on
+
+struct domin_specs {
+	
+	string scalar mi, reg, dv, all, weight, exp, touse, regopts
+	
+}
+
+end
+
+**# Mata function to compute all combinations of predictors or predictor sets run all subsets regression, and compute all dominance criteria
 mata: 
 
 mata set matastrict on
 
-void dominance(
-	class AssociativeArray scalar model_specs, pointer scalar model_call, 
-	string colvector IVs,
-	string scalar cdlcompu, string scalar cptcompu, 
-	real scalar full_fitstat) {
-		
+void dominance0(struct domin_specs scalar model_specs, pointer scalar model_call, /// 
+	string scalar cdlcompu, string scalar cptcompu, string scalar iv_string, ///
+	real scalar all_subsets_fitstat, real scalar constant_model_fitstat)
+{
 	/*# object declarations*/
-	real matrix IV_antiindicator_matrix, conditional_dominance, 
-		weighted_order_fitstats, weighted_order1less_fitstats, 
-		weight_matrix, complete_dominance, select2IVfits, 
+	real matrix IV_antiindicator_matrix, conditional_dominance, ///
+		weighted_order_fitstats, weighted_order1less_fitstats, ///
+		weight_matrix, complete_dominance, select2IVfits, ///
 		IV_indicator_matrix, sorted_two_IVs, compare_two_IVs
 
 	string matrix IV_name_matrix
 
-	real rowvector fitstat_vector, orders, combin_at_order, 
-		combin_at_order_1less, general_dominance, standardized, 
-		focal_row_numbers, nonfocal_row_numbers, cpt_desig, 
+	real rowvector fitstat_vector, orders, combin_at_order, ///
+		combin_at_order_1less, general_dominance, standardized, ///
+		focal_row_numbers, nonfocal_row_numbers, cpt_desig, ///
 		indicator_weight, antiindicator_weight
 
 	real colvector binary_pattern, cdl3, cpt_setup_vec, select2IVs
+
+	string colvector IVs
 	
-	real scalar number_of_IVs, number_of_regressions, display, fitstat, 
+	real scalar number_of_IVs, number_of_regressions, display, fitstat, ///
 		var1, var2, x, y
 
 	string scalar IVs_in_model
 	
-	transmorphic cpt_permute_container
+	transmorphic cpt_permute_container, t, wchars, pchars, qchars
+	
+	/*parse the predictor inputs*/
+	t = tokeninit(wchars = (" "), pchars = (" "), qchars = ("<>")) //set up parsing rules
+	
+	tokenset(t, iv_string) //register the "iv_string" string scalar for parsing/tokenizing
+	
+	IVs = tokengetall(t)' //obtain all IV sets and IVs as a vector
+
+	/*remove characters binding sets together (i.e., "<>")*/
+	for (x = 1; x <= rows(IVs); x++) {
+	
+		if (substr(IVs[x], 1, 1) == "<") { //if any entry begins with "<" (will be the case for any/all sets)...
+		
+			IVs[x] = substr(IVs[x], 1, strlen(IVs[x]) - 1) //first character removed ("<")
+			
+			IVs[x] = substr(IVs[x], 2, strlen(IVs[x])) //last character removed (">")
+			
+		}
+		
+	}
 	
 	/*set-up and compute all combinations of predictors and predictor sets*/
 	number_of_IVs = rows(IVs) //compute total number of IV sets and IVs
@@ -84,11 +117,11 @@ void dominance(
 
 	fitstat_vector = J(1, cols(IV_indicator_matrix), .) //pre-allocate container vector that will contain fitstats across all models
 	
-	for (x = 2; x <= number_of_regressions; x++) { //loop to obtain all possible regression subsets
+	for (x = 1; x <= number_of_regressions; x++) { //loop to obtain all possible regression subsets
 	
 		if (number_of_IVs > 4) {
 	
-			if (floor(x/(number_of_regressions-1)*20) > display) {
+			if (floor(x/number_of_regressions*20) > display) {
 			
 				printf(".")
 				
@@ -102,13 +135,12 @@ void dominance(
 	
 		IVs_in_model = invtokens(IV_name_matrix[., x]') //collect a distinct subset of IVs, then collpase names into single string separated by spaces
 		
-		fitstat = (*model_call)(IVs_in_model, model_specs)  //implement called model - will differ for domin vs. domme
+		fitstat = (*model_call)(IVs_in_model, all_subsets_fitstat, ///
+			constant_model_fitstat, model_specs)  //implement called model - will differ for domin vs. domme
 	
-		fitstat_vector[x] = fitstat //add fitstat to vector of fitstats
+		fitstat_vector[1, x] = fitstat //add fitstat to vector of fitstats
 
 	}
-	
-	fitstat_vector[1] = full_fitstat
 
 	/*define the incremental prediction matrices and combination rules*/
 	IV_antiindicator_matrix = (IV_indicator_matrix:-1) //matrix flagging which IVs are not included in each model and setting them up for a subtractive effect
@@ -130,7 +162,17 @@ void dominance(
 
 	general_dominance = colsum((weight_matrix:*fitstat_vector)') //general dominance weights created by computing product of weights and fitstats and summing for each IV row-wise; in implementing the rows are transposed and column summed so it forms a row vector as will be needed to make it an "e(b)" vector
 
+	fitstat = rowsum(general_dominance) + all_subsets_fitstat + constant_model_fitstat //total fitstat is then sum of gen. dom. wgts replacing the constant-only model and the "all" subsets stat
+
 	st_matrix("r(domwgts)", general_dominance) //return the general dom. wgts as r-class matrix
+
+	standardized = general_dominance:*fitstat^-1 //generate the standardized gen. dom. wgts
+	
+	st_matrix("r(sdomwgts)", standardized) //return the stdzd general dom. wgts as r-class matrix	
+	
+	st_matrix("r(ranks)", mm_ranks(general_dominance'*-1, 1, 1)') //return the ranks of the general dom. wgts as r-class matrix
+
+	st_numscalar("r(fs)", fitstat) //return overall fit statistic in r-class scalar
 	
 	/*compute conditional dominance*/
 	if (strlen(cdlcompu) == 0) {
