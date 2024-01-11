@@ -1,12 +1,13 @@
-*! domme version 1.1.2 8/14/2023 Joseph N. Luchman
+*! domme version 1.2.0 mth/day/202x Joseph N. Luchman
+// version information at end of file
 
-capture include dominance0.mata, adopath																// include Mata-based dominance code
+*quietly include dominance.mata, adopath
 
-program define domme, eclass 																			// ~ history and version information at end of file ~
+program define domme, eclass 
 
-	version 15.1
+	version 15
 
-	if replay() & !strlen("`0'") { 																		//replay results - error if "by"; domme allows nothing in "anything" - allow it to replay only when there is nothing in options
+	if replay() & !strlen("`0'") {
 
 		if ("`e(cmd)'" != "domme") error 301
 
@@ -17,729 +18,85 @@ program define domme, eclass 																			// ~ history and version informa
 		exit 0
 
 	}
-
-	/*define syntax*/
-	syntax [anything(id="equation names" equalok)] [in] [if] ///
-		[aw pw iw fw], Reg(string) Fitstat(string) [Sets(string) ///
-		noCOMplete noCONditional ///
-		REVerse all(string) EXTraconstr(numlist) ///
-		ROPts(string) ADDConstr(numlist)] 																//addconstr() and extraconstr() undocumented - for use in possible extensions
-
-	/*exit conditions*/
-	capture which lmoremata.mlib																		//is -moremata- present?
-
-
-	if _rc { 																							//if -domin- cannot be found, tell user to install it.
-
-		display "{err}Module {cmd:moremata} not found.  Install " ///
-			"{cmd:moremata} here {stata ssc install moremata}."
-
-		exit 198
-
-	}
-
-	/*general set up*/
-	mata: model_specs = domme_specs() 																	//initiate instance of domme_specs() structure
 	
-	tempname ranks gendom stzd_gendom cdldom cptdom 													//temporary matrices for results
+**# Program definition and argument checks
+syntax [anything(id="equation names" equalok)] [in] [if] [aw pw iw fw], ///
+	Reg(string) Fitstat(string) ///
+	[Sets(string) All(string) ///
+	noCOMplete noCONditional REVerse ///
+	ROPts(string)]
 
-	local two "`anything'" 																				//rename the input equation-to-independent variable mapping in "anything": done to generalize and simplify loop below
+**# Wrapper process for -domme- processing in Mata
+mata: domme_2mata("`reg'", "`fitstat'", "`sets'", "`all'", ///
+	"`conditional'", "`complete'", "`ropts'", "`reverse'", ///
+	"`weight'`exp'", "`in' `if'", "`anything'")
 
-	local drop_exit = 0 																				//local macro indicating that -domme- should drop constraints made so they do not persist due to error/when something goes wrong before the end of command's successful execution
+**# Ereturn processing
+tempname domwgts cdldom cptdom stdzd ranks 
 
-	//**process "anything" and obtain individual constraints**//
-	while strlen("`two'") {																				//process the equation-to-independent variable mapping in "anything" if something is present...
+if !strlen("`conditional'") matrix `cdldom' = r(cdldom)
+if !strlen("`complete'") matrix `cptdom' = r(cptdom)
 
-		gettoken one two: two, bind																		//parse the equation-to-independent variable mapping to bind all parenthetical statements together and pull out first parenthetical statement/equation
+if strlen("`e(title)'") local title "`e(title)'"
+if !strlen("`e(title)'") & strlen("`e(cmd)'") local title "`e(cmd)'"
+else local title "Custom user analysis"	
 
-		if !regexm("`one'", "=") { 																		//exit if there is no equal sign to make an equation
+matrix `domwgts' = r(domwgts)
+ereturn post `domwgts' [`weight'`exp'] , obs(`=r(N)') esample(`touse')
 
-			display "{err}Equation {cmd:`one'} is missing a {cmd:=} to " ///
-				"distinguish equation and independent variable names."
+**# Ereturn scalars
+ereturn scalar fitstat_o = `=r(fullfs) + r(allfs) + r(consfs)'
 
-			local drop_exit = 1																			//indicate that constraints will be dropped
+if `=r(allfs)' != 0 ereturn scalar fitstat_a = r(allfs)
+if `=r(consfs)' != 0 ereturn scalar fitstat_c = r(consfs)
 
-			continue, break																				//stop the -while- loop...
+if strlen("`setcount'") {
 
-		}
-
-		local one = regexr("`one'", "[/(]", "")															//remove left paren from equation statement
-
-		local one = regexr("`one'", "[/)]", "")															//remove right paren from equation statement
-
-		gettoken dv ivlist: one, parse("=")																//further parse the focal equation to separate out dependent from independent variables
-
-		if ( `: list sizeof dv' != 1 ) | regexm("`dv'", "=")  {											//multiple dependent variables/equations or no dependent variable where one should be... exit
-
-			display "{err}Invalid equation name specified for {cmd:(`dv'`ivlist')}."
-
-			local drop_exit = 1																			//indicate that constraints will be dropped
-
-			continue, break																				//stop the -while- loop...
-
-		}
-
-		local ivlist = regexr("`ivlist'", "=", "")														//remove the equal sign from the independent variable list
-
-		if ( `: list sizeof ivlist' == 0 )  { 															//empty independent variable list... exit as an empty list is an error
-
-			display "{err}Empty set of independent variables specified for " ///
-				"equation {cmd:`dv'}."
-
-			local drop_exit = 1	 																		//indicate that constraints will be dropped
-
-			continue, break																				//stop the -while- loop...
-
-		}
-
-		local dv = trim("`dv'")																			//remove white spaces in dependent variable which can affect putting the string into equations
-
-		foreach iv of local ivlist {																	//loop over the independent variables in the first equation...
-
-			if substr("`dv'", 1, 1) == "~" {															//method for parsing (G)SEM parameters with Stata defaults
-
-				local dv "/"																			//(g)sem's DV is a forward slash
-
-				local iv = subinstr("`iv'", "+", " ", .)												//remove all plus signs required for covariance 
-
-				if `: list sizeof iv' == 3 ///															//formatting if this is a covariance statement (situation where there would be 3 items in the parsed "independent variable")
-					local iv "`: word 1 of `iv''(`: word 2 of `iv'',`: word 3 of `iv'')"
-
-				else local iv  "`: word 1 of `iv''(`: word 2 of `iv'')"									//formatting if this is a standard parameter
-
-			}
-
-			capture constraint free																		//find an unused constraint number - capture to ensure they're not all used
-
-			if !_rc {																					//if an unused constraint can be found...
-
-				local constr `r(free)'																	//use the free constraint by putting into local macro
-
-				constraint `constr' _b[`dv':`iv'] = 0													//establish this constraint as one that domme will use
-
-				local add "`dv':`iv'"																	//set up the equation, independent variable/parameter estimate combination for display
-
-				local ivs = "`ivs' `add'"																//record the parameter estimate for display
-
-				local constrs "`constrs' `constr'"														//add the constraint associated with the parameter estimate to the list of constraints
-				
-				mata: model_specs.param_list.put(st_local("add"), st_local("constr")) // add the parameters associated with the name to the parameter mapping
-
-			}
-
-			else {																						//if no unused constraints remain...
-
-				display "{err}{cmd:domme} cannot make any more constraints as the " ///
-					"{help constraint dir} is full (see {help constraint drop})."
-
-				local drop_exit = 1																		//indicate that constraints will be dropped
-
-				continue, break																			//stop the -while- loop...
-
-			}
-
-			if `drop_exit' continue, break																//stop the within equation -forvalues- loop... 
-		}
-
-		if `drop_exit' continue, break																	//stop the overall -while- loop...
-
-	}
-
-	//**process and obtain sets**//
-	local two "`sets'"																					//rename the set-based equation-to-independent variable mapping: done to generalize and simplify loop below
-
-	local setcount = 0																					//used if there are sets to start a count and number them
-
-	while strlen("`two'") & !`drop_exit' {																//if nothing's wrong so far and there are sets...
-
-		gettoken one two: two, bind																		//parse the sets of equation-to-independent variable mappings in parentheses
-
-		local 2 = trim("`one'")																			//rename the set to generalize and simplify loop below
-
-		if ( substr("`2'", 1, 1) != "[" ) | ///
-			( substr("`2'", strlen("`2'"), strlen("`2'")) != "]" ) {										//if a left paren does not begin and a right paren does not end the first set...
-
-			display "{err}Set {cmd:`2'} not bound by brackets, {cmd:[ ]}."
-
-			local drop_exit = 1																			//indicate that constraints will be dropped
-
-			continue, break																				//stop the -while- loop...
-
-		}
-
-		local setcount = `setcount' + 1																	//increment setcount in the case that the first (and subsequent) set is valid
-
-		while strlen("`2'") & !`drop_exit' {															//mirrors the processing of the equation-to-independent variable  mapping for "anything" if they exist within a set...
-
-			local 2 = subinstr("`2'", "[", "", 1)														//remove left bracket
-
-			local 2 = trim(subinstr("`2'", "]", "", 1))													//remove right bracket
-
-			gettoken 1 2: 2, bind																		//parse the equation-to-independent variable mapping to bind all brackets together and pull out first equation
-
-			if ( substr("`1'", 1, 1) != "(" ) | ///
-				( substr("`1'", strlen("`1'"), strlen("`1'")) != ")" ) {								//if a left bracket does not begin and a right bracket does not end the first equation...
-
-				display "{err}Equation {cmd:`1'} in set {cmd:`one'} not bound by " ///
-					"parentheses; {cmd:( )}."
-
-				local drop_exit = 1																		//indicate that constraints will be dropped
-
-				continue, break																			//stop the -while- loop...
-
-			}
-
-			if !regexm("`1'", "=") {																	//exit if there is no equal sign to make an equation
-
-				display "{err}Equation {cmd:`1'} in set {cmd:`one'} is missing a " ///
-					"{cmd:=} to distinguish equation and independent variable names."
-
-				local drop_exit = 1																		//indicate that constraints will be dropped
-
-				continue, break																			//stop the -while- loop...
-
-			}
-
-			local 1 = subinstr("`1'", "(", "", 1)														//remove left paren
-
-			local 1 = trim(subinstr("`1'", ")", "", 1))													//remove right paren
-
-			gettoken dv ivlist: 1, parse("=")															//further parse the focal equation to separate out dependent from independent variables
-
-			if ( `: list sizeof dv' != 1 ) | regexm("`dv'", "=")  { 									//multiple dependent variables or no dependent variable where one should be... exit
-
-				display "{err}Invalid equation name specified for " ///
-					"{cmd:(`dv'`ivlist')} in set {cmd:`one'}."
-
-				local drop_exit = 1																		//indicate that constraints will be dropped
-
-				continue, break																			//stop the -while- loop...
-
-			}
-
-			local ivlist = regexr("`ivlist'", "=", "")													//remove the equal sign from the independent variable list
-
-			if ( `: list sizeof ivlist' == 0 )  { 														//empty independent vatiable list... exit as it breaks process
-
-				display "{err}Empty set of independent variables specified for " ///
-					"equation {cmd:`dv'} in set {cmd:`one'}."
-
-				local drop_exit = 1																		//indicate that constraints will be dropped
-
-				continue, break																			//stop the -while- loop...
-
-			}
-
-			local dv = trim("`dv'")																		//remove white spaces in dependent variable which can affect putting the string into equations
-
-			foreach iv of local ivlist {																//loop over the independent variables in the first equation...
-
-				if substr("`dv'", 1, 1) == "~" {														//method for parsing (G)SEM parameters with Stata defaults
-
-					local dv "/"																		//(g)sem's DV is a forward slash
-
-					local iv = subinstr("`iv'", "+", " ", .)											//remove all plus signs required for covariance 
-
-					if `: list sizeof iv' == 3 ///														//formatting if this is a covariance statement (situation where there would be 3 items in the parsed "independent variable")
-						local iv "`: word 1 of `iv''(`: word 2 of `iv'',`: word 3 of `iv'')"
-
-					else local iv  "`: word 1 of `iv''(`: word 2 of `iv'')"								//formatting if this is a standard parameter
-
-				}
-
-				capture constraint free																	//find an unused constraint number
-
-				if !_rc {																				//if an unused constraint can be found...
-
-					local constr `r(free)'																//use the free constraint
-
-					constraint `constr' _b[`dv':`iv'] = 0												//establish this constraint as one that -domme- will use
-
-					local add "`dv':`iv'"																//set up the parameter estimate label
-
-					local set`setcount' "`set`setcount'' `add'"											//add parameter estimate label to set
-
-					local cset`setcount' "`cset`setcount'' `constr'"									//add constraint to set
-
-				}
-
-				else {																					//if no unused constraints remain...
-
-					display "{err}{cmd:domme} cannot make any more constraints as the " ///
-						"{help constraint dir} is full (see {help constraint drop})."
-
-					local drop_exit = 1																	//indicate that constraints will be dropped
-
-					continue, break																		//stop the -while- loop...
-
-				}
-
-				if `drop_exit' continue, break															//stop the within equation, -forvalues- loop ...	
-
-			}
-
-			if `drop_exit' continue, break																//stop the -while- loop looking for equations in a set...
-
-		}	
-
-		if `drop_exit' continue, break																	//stop the -while- overall sets loop...
-
-		else {																							//nothing went wrong, so entire set was processed, thus...
-
-			local ivs "`ivs' _set:set`setcount'"														//add parameter estimate set to all all subsets - the chevrons bind sets together; Mata separates them	
-
-			local constrs "`constrs' <`cset`setcount''>"												//add constraint set to all other constraints - the chevrons bind sets together; Mata separates them
-			
-			mata: model_specs.param_list.put("_set:set" + st_local("setcount"), ///
-				st_local("cset" + st_local("setcount"))) // add the parameters associated with the name to the parameter mapping*/
-
-		}
-
-	}
-
-	if ( `:list sizeof ivs' < 2 ) & !`drop_exit' {														//exit if too few parameter estimates/sets (otherwise prodices cryptic Mata error)
-
-		display "{err}{cmd:domme} requires at least 2 parameter estimates " ///
-			"or parameter estimate sets."
-
-		local drop_exit = 1																				//indicate that constraints will be dropped
-
-	}
-
-	if strlen("`addconstr'") {																			//if there are custom constraints added to the analysis by number...
-
-		foreach constrnum of numlist `addconstr' {														//foreach constraint...
-
-			local ivs "`ivs' _cns:cns`constrnum'"														// format the constraint as a domme-able parameter
-
-			local constrs "`constrs' `constrnum'"														// add the constraint to the domme-able constraint list
-
-		}
-
-	}
-
-	local nobrkt_constrs = ///
-		subinstr(subinstr("`constrs'", ">", "", .), "<", "", .)											//local macro where chevrons in constraint list is removed to estimate the constant model	
-
-	/*finalize setup*/
-	//**markouts and sample**//
-	tempvar touse keep																					//declare sample marking variables
-
-	tempname obs allfs consfs																			//declare temporary scalars
-
-	mark `touse'																						//declare marking variable using Stata norm "touse"
-
-	quietly generate byte `keep' = 1 `if' `in' 															//generate tempvar that adjusts for "if" and "in" statements
-
-	markout `touse' `keep'																				//mark sample for only really works with the if & in; all other missing-based adjustments must derive from running full model
-
-	//**inital run to ensure the syntax works and restrict sample based on full model**//
-	if !`drop_exit' capture `reg' [`weight'`exp'] if `touse', `ropts' constraints(`extraconstr')		//run of overall analysis assuming all is well so far; intended to check e(sample) and whether everything works as it should
-
-	if _rc & !`drop_exit' {																				//exit if model is not estimable or program results in error - return the returned code
-
-		display "{err}{cmd:`reg'} resulted in an error."
-
-		local exit_code = `=_rc'
-
-		local drop_exit = 1																				//indicate that constraints will be dropped
-
-	}
-
-	//**fitstat processing**//
-	if regexm("`fitstat'", "^e\(\)") & !`drop_exit' {													//if internal fitstat indication is in "fitstat" option; must have "e()"
-
-		gettoken omit fit_opts: fitstat, parse(",")														//parse the fitstat to see if "mcf", "est", "aic", or "bic" present
-
-		compute_fitstat `fit_opts'																		//return fitstat using internal computation program; this is just to determine if the options given work
-
-		if `r(many_few)' {																				//something's wrong - probably too many or too few fitstat options provided
-
-			local drop_exit = 1																			//indicate that constraints will be dropped
-
-			display "{err}Options offered to e() fitstat computation " ///
-				"resulted in error."
-
-		}
-
-		else {																							//...otherwise nothing's wrong - indicate to program to use built in approach
-
-			local fitstat = "r(fitstat)"																//placeholder "returned" statistic - changed prior to program completion
-
-			mata: st_numscalar("r(fitstat)", 0)															//placeholder "returned" statistic's value
-
-			local built_in = 1																			//indicate that the program is to produce it's own fitstat
-
-			local built_in_style "`r(style)'"															//indicate the style of built in statistic to ask for
-
-		}
-
-	}
-
-	else local built_in = 0																				//if not built in, then indicate the estimation model produces it's own fitstat
+	ereturn hidden scalar setcount = `setcount'	
 	
-	capture assert `fitstat' != .																		//is the "fitstat" the user supplied actually returned by the command?
-
-	if _rc & !`drop_exit' {																				//exit if fitstat can't be found
-
-		display "{err}{cmd:`fitstat'} not returned by {cmd:`reg'} or " ///
-			"{cmd:`fitstat'} is not scalar valued. See {help return list}." ///
-			_newline "Alternatively, {err}{cmd:`fitstat'} may have problems " ///
-			"being computed internally with the information supplied."
-
-
-		local drop_exit = 1																				//indicate that constraints will be dropped
-
-	}
-
-	capture assert sign(`fitstat') != -1																//what is the sign of the fitstat?  -domme- works best with positive ones - warn and proceed
-
-	if _rc & !`drop_exit' {																				//merely note that -domme- works best with positive ones (that's what's expected)
-
-		display "{err}{cmd:`fitstat'} returned by {cmd:`reg'}" _newline ///
-			"is negative.  {cmd:domme} is programmed to work best" _newline ///
-			"with positive {opt fitstat()} summary statistics." _newline
-
-	}
-
-	//**count observations**//
-	if !`drop_exit' {																					//if nothing's wrong so far...
-
-		quietly replace `touse' = e(sample) 															//replace sample marking variable with e(sample) from the model run
-
-		if !inlist("`e(wtype)'", "iweight", "fweight") {												//if weights don't affect obs (for probability and analytic weights)
-
-			quietly count if `touse'																	//tally up "touse"	
-
-			scalar `obs' = r(N)																			//pull out the number of observations included
-
-		}
-
-		else if inlist("`e(wtype)'", "iweight", "fweight") {											//if the weights do affect obs (for frequency and importance weights)
-
-			quietly summarize `=regexr("`e(wexp)'", "=", "")' if `touse'								//tally up "touse" by summing weights
-
-			scalar `obs' = r(sum)																		//pull out the number of observations included
-
-		}
-
-		//**obtain parameters considered to be "part of model" and not adjusted out of fitstat**//
-		scalar `allfs' = 0																				//defining fitstat of "all subsets" parameters as 0 - needed for dominance() function
-
-		if `:list sizeof all' {																			//if there is something in the "all" option
-			
-			local 2 "`all'"																				//rename the content of "all" to generalize and simplify loop below
-
-			while strlen("`2'") & !`drop_exit' {														//process the equation-to-independent variable mapping for "all"...
-
-				gettoken 1 2: 2, bind																	//parse the equation-to-independent variable mapping to bind all parentheses together and pull out first equation
-
-				if ( substr("`1'", 1, 1) != "(" ) ///
-					| ( substr("`1'", strlen("`1'"), strlen("`1'")) != ")" ) {							//if a left paren does not begin and a right paren does not end the first all equation...
-
-					display "{err}Equation {cmd:`1'} in {cmd:all()} not bound by " ///
-						"parentheses."
-
-					local drop_exit = 1																	//indicate that constraints will be dropped
-
-					continue, break																		//stop the -while- loop...
-
-				}
-
-				if !regexm("`1'", "=") {																//exit if there is no equal sign to make an equation
-
-					display "{err}Equation {cmd:`1'} in {cmd:all()} is missing a " ///
-						"{cmd:=} to distinguish equation and independent variable names."
-
-					local drop_exit = 1																	//indicate that constraints will be dropped
-
-					continue, break																		//stop the -while- loop...
-
-				}
-
-				local 1 = subinstr("`1'", "(", "", 1)													//remove left paren
-
-				local 1 = subinstr("`1'", ")", "", 1)													//remove right paren
-
-				gettoken dv ivlist: 1, parse("=")														//further parse the focal equation to separate out dependent from independent variables
-
-				if ( `: list sizeof dv' != 1 ) | regexm("`dv'", "=")  { 								//multiple dependent variables or no dependent variable where one should be... exit
-
-					display "{err}Invalid equation name specified for " ///
-						"{cmd:(`dv'`ivlist')} in {cmd:all()}."
-
-					local drop_exit = 1																	//indicate that constraints will be dropped
-
-					continue, break																		//stop the -while- loop...
-
-				}
-
-				local ivlist = regexr("`ivlist'", "=", "")												//remove the equal sign from the independent variable list
-
-				if ( `: list sizeof ivlist' == 0 )  { 													//empty independent vatiable list... exit as it breaks process
-
-					display "{err}Empty set of independent variables specified for " ///
-						"equation {cmd:`dv'} in {cmd:all()}."
-
-					local drop_exit = 1																	//indicate that constraints will be dropped
-
-					continue, break																		//stop the -while- loop...
-
-				}
-
-				local dv = trim("`dv'")																	//remove white spaces in dependent variable which can affect putting the string into equations
-
-				foreach iv of local ivlist {															//loop over the independent variables in the all equations...
-
-					if substr("`dv'", 1, 1) == "~" {													//method for parsing (G)SEM parameters with Stata defaults
-
-						local dv "/"																	//(g)sem's DV is a forward slash
-
-						local iv = subinstr("`iv'", "+", " ", .)										//remove all plus signs required for covariance 
-
-						if `: list sizeof iv' == 3 ///													//formatting if this is a covariance statement (situation where there would be 3 items in the parsed "independent variable")
-							local iv "`: word 1 of `iv''(`: word 2 of `iv'',`: word 3 of `iv'')"
-
-						else local iv  "`: word 1 of `iv''(`: word 2 of `iv'')"							//formatting if this is a standard parameter
-
-					}
-
-					capture constraint free																//find an unused constraint number
-
-					if !_rc {																			//if an unused constraint can be found...
-
-						local constr `r(free)'															//use the free constraint
-
-						constraint `constr' _b[`dv':`iv'] = 0											//establish this constraint as one that -domme- will use
-
-						local add "`dv':`iv'"															//set up the parameter estimate label
-
-						local allset "`allset' `add'"													//add the parameter estimate label to set
-
-						local allcset "`allcset' `constr'"												//add constraint to set
-
-					}
-
-					else {																				//if no unused constraints remain...
-
-						display "{err}{cmd:domme} cannot make any more constraints as the " ///
-							"{help constraint dir} is full (see {help constraint drop})."
-
-						local drop_exit = 1																//indicate that constraints will be dropped
-
-						continue, break																	//stop the -while- loop...
-
-					}
-
-					if `drop_exit' continue, break														//stop the -forvalues- loop...	
-
-				}
-
-			}
-
-		}
-
-		//**obtain "constant" model which will adjusted out of fitstat**//
-		scalar `consfs' = 0																				//define constant-only model fitstat as 0 - needed for dominance() function
-
-		quietly `reg' [`weight'`exp'] if `touse', `ropts' ///
-			constraints(`nobrkt_constrs' `allcset' `extraconstr')										//all constraints used - this estimates the "constant" model
-
-		if `built_in' {
-			
-			compute_fitstat `fit_opts' iscons 															//if a built-in fistat desired, estimate it; note constant model
-			
-			scalar `consfs' = `fitstat'
-			
-		}
-
-		if !`built_in' & !missing(`fitstat') ///
-			scalar `consfs' = `fitstat'																	//return constant model's fitstat if user supplied and not missing
+	forvalues set = 1/`setcount' {	
 		
-		if !`built_in' & missing(`fitstat') scalar `consfs' = 0 										//otherwise assume the constant-only model is 0	
-
-		if strlen("`all'") {																			//distinguishes "all subsets" from "constant" fitstats/models
-
-			quietly `reg' [`weight'`exp'] if `touse', `ropts' ///
-				constraints(`nobrkt_constrs' `extraconstr')												//all "subsets" and extra constraints used - this estimates the "all" model
-
-			if `built_in' compute_fitstat `fit_opts' consmodel(`=`consfs'')								//if a built-in fistat desired, estimate it; supply constant model's value
-
-			scalar `allfs' = `fitstat'																	//return all subset model's fitstat as distinct from any constant model
-
-
-		}
-
-		if `built_in' local cons_no_add = ///
-			!inlist("`built_in_style'", "mcf", "est")													//local macro indicating that the constant model fitstat should be included in the total fitstat - will be 0 for built in "mcf" and "est" and the actual value of "consfs" for non-built in where "consmodel" is not chosen will be 0
-
-		else local cons_no_add = 1																		//...all other cases can be allowed to be 0
-
-		if strlen("`all'") scalar `allfs' = `allfs' - `consfs'*`cons_no_add'							//adjust all subsets fitstat for the constant fitstat in situations where it's not 0
-
-		/*dominance statistic determination*/
-		mata: model_specs.built_in = strtoreal(st_local("built_in"))
-		mata: model_specs.constraint_list = tokens(st_local("nobrkt_constrs"))
-		mata: model_specs.built_in_cons = st_numscalar(st_local("consfs"))
-
-		mata: dominance0(model_specs, &domme_call(), ///
-		st_local("conditional'"), st_local("complete"), ///
-		st_local("ivs"), ///
-		st_numscalar(st_local("allfs")), ///
-		st_numscalar(st_local("consfs"))*strtoreal(st_local("cons_no_add")))							//invoke "dominance()" function in Mata 
-
-		/*translate r-class results from me_dominance() into temp results*/
-		matrix `gendom' = r(domwgts)																	//general dominance statistics
-
-		matrix `stzd_gendom' = r(sdomwgts)																//standardized general dominance statistics
-
-		matrix `ranks' = r(ranks)																		//ranks based on general dominance statistics
-
-		if !strlen("`conditional'") matrix `cdldom' = r(cdldom)											//conditional dominance statistic matrix
-
-		if !strlen("`complete'") matrix `cptdom' = r(cptdom)											//complete dominance designation matrix
-
-		/*processing display results*/
-		//**name matrices**//
-		matrix colnames `gendom' = `ivs'																//name the columns of general dominance statistic vector
-
-		if strlen("`reverse'") {																		//reverse the direction and interpretation of ranked and standardized general dominance statistics
-
-			mata: st_matrix("`stzd_gendom'", ///
-				( st_matrix("`gendom'"):*-1 ):/sum( st_matrix("`gendom'"):*-1 ) )						//reverse the signs of the standardized general dominance statistics
-
-			mata: st_matrix("`ranks'", ///
-				( ( st_matrix("`ranks'"):-1 ):*-1 ):+cols( st_matrix("`ranks'") ) )						//reverse the sign of the ranked general dominance statistics
-
-		}
-
-		matrix colnames `stzd_gendom' = `ivs'															//name the columns of stanadrdized general dominance statistic vector
-
-		matrix colnames `ranks' = `ivs'																	//name the columns of ranked general dominance statistic vector
-
-		if !strlen("`complete'") { 																		//if the complete dominance matrix was not suppressed...
-
-			local cptivs = subinstr("`ivs'", ":", "_", .)												//must remove colons between equation and independent variable; only 1 colon allowed - "dominates?" and "dominated?" are equations for complete dominance matrix
-
-			local cptivs = subinstr("`ivs'", ".", "_", .)												//must also remove "."s - causes error in naming
-
-			if strlen("`reverse'") mata: ///
-				st_matrix("`cptdom'", st_matrix("`cptdom'"):*-1 )										//reverse the sign of the complete dominance designations
-
-			matrix colnames `cptdom' = `cptivs'															//name the columns of the complete dominance designations
-										
-			mata: st_matrixcolstripe("`cptdom'", ///
-				("<?":+st_matrixcolstripe("`cptdom'")[,1], st_matrixcolstripe("`cptdom'")[,2]))			//add name the equation for the columns "<?" - replacement for "dominated?"
-			
-			matrix rownames `cptdom' = `cptivs'															//name the rows of the complete dominance designations
-
-			mata: st_matrixrowstripe("`cptdom'", ///
-				(">?":+st_matrixrowstripe("`cptdom'")[,1], st_matrixrowstripe("`cptdom'")[,2]))			//add name the equation for the rows ">?"  replacement for "dominates?"
-
-		}
-
-		if !strlen("`conditional'") { 																	//if the conditional dominance matrix was not suppressed...
-
-			matrix rownames `cdldom' = `ivs'															//name the rows of the conditional dominance matrix
-
-			local colcdl `:colnames `cdldom''															//the columns of the conditional dominance matrix are at defaults "c1 c2 ... cN"
-
-			local colcdl = subinstr("`colcdl'", "c", "", .)												//remove the "c"s from all the rownames; keep the values
-
-			matrix colnames `cdldom' = `colcdl'															//replace the column names of the conditional dominance matrix with the number of "orders" which matches their counting sequennce
-
-			matrix coleq `cdldom' = #param_ests															//equation names for all columns are "#param_ests"
-
-		}	
-
-		if strlen("`e(title)'") local title "`e(title)'"												//if the estimation command has an "e(title)" returned, save it
-
-		else if !strlen("`e(title)'") & strlen("e(cmd)") local title "`e(cmd)'"							//...otherwise save the "e(cmd)" as that's informative too
-
-		else local title "Custom user analysis"															//...finally, if none of the options are returned, call it "custom user analysis"
-
-		/*return values*/
-		ereturn post `gendom' [`weight'`exp'], obs(`=`obs'') esample(`touse')							//primary estimation command returned value command; clears ereturn and returns "gendom" as e(b)
-
-		if strlen("`setcount'") {																		//if there are sets...
-
-			ereturn hidden scalar setcount = `setcount'													//hidden scalar for use in "display"
-
-			forvalues set = 1/`setcount' {																//for each set...
-
-				ereturn local set`set' = trim("`set`set''")												//make a separate local macro with it's parameter estimate label contents
-
-			}
-
-		}
-
-		else ereturn hidden scalar setcount = 0															//...otherwise hidden set count is 0
-
-		ereturn hidden local disp_title "`title'"														//hidden title for display (hence, "disp_title")
-
-		ereturn hidden local reverse "`reverse'"														//hidden indicator for reverse - for display
-
-		if `:list sizeof all' ereturn local all = strtrim("`allset'")									//parameter estimate labels in all subsets
-
-		if strlen("`ropts'") ereturn local ropts `"`ropts'"'											//if there were regression command options return them as macro
-
-		ereturn local reg "`reg'"																		//return command used in -domme- in macro
-
-		if `built_in' local fitstat "e(`built_in_style')"												//if a built-in is used, change "r(fitstat)" to the "e()" form with fitstat name
-
-		ereturn local fitstat "`fitstat'"																//return the name of the fitstat used
-
-		ereturn local cmd "domme"																		//this command is -domme-; return that
-
-		ereturn local title `"Dominance analysis for multiple equations"'								//The title/description of -domme-
-
-		ereturn local cmdline `"domme `0'"'																//full command as read into -domme- the 0 macro is everything after the command's name
-
-		ereturn scalar fitstat_o = r(fs)																//overall fitstat value
-
-		if `:list sizeof all' ereturn scalar fitstat_a = `allfs' + ///
-			`consfs'*`cons_no_add'																		//all subsets fitstat value
-
-		if sign( `consfs'*`cons_no_add' ) ereturn scalar fitstat_c = ///								//constant model fitstat value
-			`consfs'*`cons_no_add'
-
-		if !strlen("`conditional'") ereturn matrix cdldom `cdldom'										//return conditional dominance matrix
-
-		if !strlen("`complete'") ereturn matrix cptdom `cptdom'											//return complete dominance designations
-
-		ereturn matrix ranking `ranks'																	//return ranked general dominance vector
-
-		ereturn matrix std `stzd_gendom'																//return standardized general dominance vector
-
-		/*begin display*/
-		Display
+		ereturn local set`set' = trim("`set`set''")	
 
 	}
 
-	/*drop constraints -domme- made; not ones user supplied*/
-	if missing(`exit_code') local exit_code = 198														//make the default exit code 198 
+}
 
-	if `drop_exit' {																					//if there was a problem during the program's execution
+else ereturn hidden scalar setcount = 0	
 
-		if `: list sizeof constrs' {																	//if there are constraints used...
+**# Ereturn macros
+ereturn hidden local disp_title "`title'"
 
-			foreach constr of numlist `constrs' {														//go through each constraint that was made...
+ereturn hidden local reverse "`reverse'"
 
-				constraint drop `constr'																//drop the constraint
+if strlen("allset") ereturn local all = "`allset'"
 
-			}
+if strlen("`ropts'") ereturn local ropts `"`ropts'"'
 
-		}
+ereturn local reg "`reg'"
 
-		exit `exit_code'																				//exit using applicable exit code
+if `built_in' local fitstat "e(`built_in_style')"
 
-	}
+ereturn local fitstat "`fitstat'"
 
-	foreach constr of numlist `nobrkt_constrs' {														//go through each constraint that was made...
+ereturn local cmd "domme"
 
-		constraint drop `constr'																		//drop the constraint
+ereturn local title `"Dominance analysis for multiple equations"'
 
-	}
+ereturn local cmdline `"domme `0'"'
+
+**# Ereturn matrices
+if !strlen("`conditional'") ereturn matrix cdldom `cdldom'
+
+if !strlen("`complete'") ereturn matrix cptdom `cptdom'
+
+matrix `ranks' = r(ranks)
+ereturn matrix ranking `ranks'
+
+matrix `stdzd' = r(stdzd)
+ereturn matrix std `stdzd'
+
+Display
 
 end
 
@@ -747,307 +104,731 @@ end
 /*Display program*/
 program define Display
 
-	version 15.1
+version 15
 
-	/*set up*/
-	tempname gendom stzd_gendom ranks																	//declare names for temporary data
+/*set up*/
+tempname gendom stzd_gendom ranks
 
-	matrix `gendom' = e(b)																				//as in original command "gendom" is general dominance statistics vector; now in e(b)
+matrix `gendom' = e(b)
+matrix `stzd_gendom' = e(std)
+matrix `ranks' = e(ranking)
 
-	matrix `stzd_gendom' = e(std)																		//as in original command "stzd_gendom" is standardized general dominance statistics vector; now in e(std)
+local diivs: colnames e(b)
+local eqivs: coleq e(b)
 
-	matrix `ranks' = e(ranking)																			//as in original command "ranks" is ranked general dominance statistics vector; now in e(ranking)
+mata: st_local("cdltest", strofreal(cols(st_matrix("e(cdldom)"))))
+mata: st_local("cpttest", strofreal(cols(st_matrix("e(cptdom)")))) 
 
-	local diivs: colnames e(b)																			//obtain independent variable names
+tokenize `diivs'
 
-	local eqivs: coleq e(b)																				//obtain dependent variable/equation names
+display _newline "{txt}General dominance statistics: `e(disp_title)'" ///
+	_newline "{txt}Number of obs{col 27}={res}{col 40}" %12.0f e(N) 			
 
-	mata: st_local("cdltest", strofreal(cols(st_matrix("e(cdldom)"))))									//indicator macro for presence of conditional dominance matrix
+display "{txt}Overall Fit Statistic{col 27}={res}{col 36}" ///
+	%16.4f e(fitstat_o)
 
-	mata: st_local("cpttest", strofreal(cols(st_matrix("e(cptdom)"))))									//indicator macro for presence of complete dominance matrix
+if !missing( e(fitstat_a) ) display "{txt}All Sub-models Fit Stat." ///
+	"{col 27}={res}{col 36}" %16.4f e(fitstat_a)
 
-	tokenize "`diivs'"																					//tokenize list of dependent variables to associate numbers with independent variables
+if !missing( e(fitstat_c) ) display "{txt}Constant-only Fit Stat." ///
+	"{col 27}={res}{col 36}" %16.4f e(fitstat_c)
 
-	/*begin displays*/
-	display _newline "{txt}General dominance statistics: `e(disp_title)'" ///
-		_newline "{txt}Number of obs{col 27}={res}{col 40}" %12.0f e(N) 			
+display _newline "{txt}{col 13}{c |}{col 20}Dominance" ///
+	"{col 35}Standardized{col 53}Ranking"
 
-	display "{txt}Overall Fit Statistic{col 27}={res}{col 36}" ///
-		%16.4f e(fitstat_o)
+display "{txt}{col 13}{c |}{col 20}Stat.{col 35}Domin. Stat." 
 
-	if !missing( e(fitstat_a) ) display "{txt}All Subsets Fit Stat." ///
-		"{col 27}={res}{col 36}" %16.4f e(fitstat_a)
+display "{txt}{hline 12}{c +}{hline 72}"
 
-	if !missing( e(fitstat_c) ) display "{txt}Constant-only Fit Stat." ///
-		"{col 27}={res}{col 36}" %16.4f e(fitstat_c)
+local current_eq ""
 
-	display _newline "{txt}{col 13}{c |}{col 20}Dominance" ///
-		"{col 35}Standardized{col 53}Ranking"
+forvalues iv = 1/`:list sizeof diivs' {
 
-	display "{txt}{col 13}{c |}{col 20}Stat.{col 35}Domin. Stat." 
+	if "`current_eq'" != abbrev("`: word `iv' of `eqivs''", 11) ///
+		display `"{txt}`=abbrev("`: word `iv' of `eqivs''", 11)'{txt}{col 13}{c |}"'
 
-	display "{txt}{hline 12}{c +}{hline 72}"
+	local current_eq = abbrev("`: word `iv' of `eqivs''", 11)
 
-	local current_eq ""																					//for separating equation from independent variable names in -forvalues- loop below
+	local `iv' = abbrev("``iv''", 10)
 
-	forvalues iv = 1/`:list sizeof diivs' {																//for each entry of the e(b) vector...
+	display "{txt}{col 2}{lalign 11:``iv''}{c |}{col 14}{res}" ///
+		%15.4f `gendom'[1,`iv'] "{col 29}" %12.4f ///
+		`stzd_gendom'[1,`iv'] "{col 53}" %-2.0f `ranks'[1,`iv']
 
-		if "`current_eq'" != abbrev("`: word `iv' of `eqivs''", 11) ///
-			display `"{res}`=abbrev("`: word `iv' of `eqivs''", 11)'{txt}{col 13}{c |}"'				//...display equation name only if it changes
+}
 
-		local current_eq = abbrev("`: word `iv' of `eqivs''", 11)										//note current equation - truncate to 11 chars
+display "{txt}{hline 12}{c BT}{hline 72}"
 
-		local `iv' = abbrev("``iv''", 10)																//abbreviate independent variable to 10 chars
+if `cdltest' {
 
-		display "{txt}{col 2}{lalign 11:``iv''}{c |}{col 14}{res}" ///
-			%15.4f `gendom'[1,`iv'] "{col 29}" %12.4f ///
-			`stzd_gendom'[1,`iv'] "{col 53}" %-2.0f `ranks'[1,`iv']
+	display "{txt}Conditional dominance statistics" _newline "{hline 85}"
 
-	}
+	matrix list e(cdldom), noheader format(%12.4f)
 
-	display "{txt}{hline 12}{c BT}{hline 72}"
+	display "{txt}{hline 85}"
 
-	if `cdltest' {																						//if conditional dominance matrix exists....
+}
 
-		display "{txt}Conditional dominance statistics" _newline "{hline 85}"
+if `cpttest' {	
 
-		matrix list e(cdldom), noheader format(%12.4f)
+	display "{txt}Complete dominance designation" _newline "{hline 85}"
 
-		display "{txt}{hline 85}"
+	matrix list e(cptdom), noheader
 
-	}
+	display "{txt}{hline 85}"
 
-	if `cpttest' {																						//if complete dominance designations exist...
+}
 
-		display "{txt}Complete dominance designation" _newline "{hline 85}"
+if `=`cpttest'*`cdltest'' {		
 
-		matrix list e(cptdom), noheader
+	display _newline "{txt}Strongest dominance designations" _newline 
 
-		display "{txt}{hline 85}"
+	tempname bestdom cdl gen decision
+	if strlen("`e(reverse)'") mata: st_matrix("`bestdom'", ///	
+		st_matrix("e(cptdom)"):*-1)
 
-	}
+	else matrix `bestdom' = e(cptdom)		
 
-	if `=`cpttest'*`cdltest'' {																			//if _both_ complete and conditional dominance designations exist - determine strongest dominance designation between each pair of parameter estimates
+	forvalues dominator = 1/`=colsof(e(cdldom))-1' {
 
-		display _newline "{res}Strongest dominance designations" _newline 
+		forvalues dominatee = `=`dominator'+1'/`=colsof(e(cdldom))' {
 
-		tempname bestdom cdl gen decision																//declare temporary names for strongest designation search
+			scalar `cdl' = 0			
 
-		if strlen("`e(reverse)'") mata: st_matrix("`bestdom'", ///										//start by determining complete dominance as "best" - if reversed, then reflect values over 0
-			st_matrix("e(cptdom)"):*-1)
+			scalar `gen' = 0
 
-		else matrix `bestdom' = e(cptdom)																//...otherwise take complete dominance values as is
+			mata: st_numscalar("`cdl'", ///
+				( sum( st_matrix("e(cdldom)")[`dominator', .] ///
+				:>st_matrix("e(cdldom)")[`dominatee', .] ) ) ///
+				:==rows( st_matrix("e(cdldom)") ) ) 											
 
-		forvalues dominator = 1/`=colsof(e(cdldom))-1' {												//search through all columns save last...
+			if !`cdl' mata: ///
+				st_numscalar("`cdl'", -1*((sum(st_matrix("e(cdldom)")[`dominator', .] ///
+				:<st_matrix("e(cdldom)")[`dominatee', .])):==rows(st_matrix("e(cdldom)"))))	
 
-			forvalues dominatee = `=`dominator'+1'/`=colsof(e(cdldom))' {								//...as well as all columns save first, dependent on dominator
+			mata: st_numscalar("`gen'", ///
+				st_matrix("e(b)")[1, `dominator']>st_matrix("e(b)")[1, `dominatee'])	
 
-				scalar `cdl' = 0																		//define conditional dominance as 0 or "not"
+			if !`gen' mata: st_numscalar("`gen'", ///
+				(st_matrix("e(b)")[1, `dominator']<st_matrix("e(b)")[1, `dominatee'])*-1)	
 
-				scalar `gen' = 0																		//define general dominance as 0 or "not"
+			local reverse_adj = cond(strlen("`e(reverse)'"), -1, 1)	
 
-				mata: st_numscalar("`cdl'", ///
-					( sum( st_matrix("e(cdldom)")[`dominator', .] ///									//...sum the number of times the values across all columns of the conditional dominance matrix for the row corresponding to the "dominator"
-					:>st_matrix("e(cdldom)")[`dominatee', .] ) ) ///									//...and compred to the values across the same columns of the conditional dominance matrix for the row corresponding to the "dominatee"
-					:==rows( st_matrix("e(cdldom)") ) ) 												//...if that's equal to the number of columns - thus every row for the "dominator" is bigger than every row for the "dominatee" - "dominator" conditionally dominates "dominatee"										
+			scalar `decision' = ///
+				cond(abs(`bestdom'[`dominator', `dominatee']) == 1, ///
+				`bestdom'[`dominator', `dominatee'], cond(abs(`cdl') == 1, ///
+				`cdl'*2, cond(abs(`gen') == 1, `gen'*3, 0)))	
+			
+			matrix `bestdom'[`dominator', `dominatee'] = ///
+				`decision'*`reverse_adj'				
 
-				if !`cdl' mata: ///
-					st_numscalar("`cdl'", -1*((sum(st_matrix("e(cdldom)")[`dominator', .] ///
-					:<st_matrix("e(cdldom)")[`dominatee', .])):==rows(st_matrix("e(cdldom)"))))			//this replicates the previous command in the opposite direction - does "dominatee" actually dominate "dominator"?
-
-				mata: st_numscalar("`gen'", ///
-					st_matrix("e(b)")[1, `dominator']>st_matrix("e(b)")[1, `dominatee'])				//compare dominator's general dominance statistic to dominatee's
-
-				if !`gen' mata: st_numscalar("`gen'", ///
-					(st_matrix("e(b)")[1, `dominator']<st_matrix("e(b)")[1, `dominatee'])*-1)			//now the opposite to the previous, compare dominatee's general dominance statistic to dominator's
-
-				local reverse_adj = cond(strlen("`e(reverse)'"), -1, 1)									//if there is a needed "reverse" adjustment - record -1, otherwise 1
-
-				scalar `decision' = ///
-					cond(abs(`bestdom'[`dominator', `dominatee']) == 1, ///
-					`bestdom'[`dominator', `dominatee'], cond(abs(`cdl') == 1, ///
-					`cdl'*2, cond(abs(`gen') == 1, `gen'*3, 0)))										//record decision in cond() statement; "1" is complete, "2" is conditional, "3" is general
-
-				matrix `bestdom'[`dominator', `dominatee'] = `decision'*`reverse_adj'					//record value of decison on lower triangle of matrix
-
-				matrix `bestdom'[`dominatee', `dominator'] = -`decision'*`reverse_adj'					//record value of decison on upper triangle of matrix
-
-			}
-
-		}
-
-		local names `:colfullnames e(b)'																//obtain full names of e(b) vector
-
-		mata: display((select(vec(tokens(st_local("names"))' ///
-			:+((st_matrix("`bestdom'"):==1):*" completely dominates ") ///
-			:+tokens(st_local("names")))', ///
-			regexm(vec(tokens(st_local("names"))' ///
-			:+((st_matrix("`bestdom'"):==1):*" completely dominates ") ///
-			:+tokens(st_local("names")))', ///
-			"completely dominates")) , ///
-			select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==2) ///
-			:*" conditionally dominates "):+tokens(st_local("names")))', ///
-			regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==2) ///
-			:*" conditionally dominates "):+tokens(st_local("names")))', ///
-			"conditionally dominates")), ///
-			select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==3) ///
-			:*" generally dominates "):+tokens(st_local("names")))', ///
-			regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==3) ///
-			:*" generally dominates "):+tokens(st_local("names")))', ///
-			"generally dominates")))')																	//complex command here - basic idea is that it takes the value in bestdom, displays the correct dominance type based on number, and plugs in the values of the parameter estimate labels
-
-		display ""
-
-	}
-
-	if `=e(setcount)' {																					//if there are sets...
-
-		forvalues set = 1/`=e(setcount)' {																//foreach set...
-
-			display "{txt}Parameters in set`set': `e(set`set')'"										//display the set's parameter estimate labels
+			matrix `bestdom'[`dominatee', `dominator'] = ///
+				-`decision'*`reverse_adj'				
 
 		}
 
 	}
 
-	if strlen("`e(all)'") ///
-		display "{txt}Parameter estimates included in all subsets: `e(all)'"							//if there is an all subsets set, display those parameter estimate labels
+	local names `:colfullnames e(b)'
 
-end
+	mata: display(("{txt}", select(vec(tokens(st_local("names"))' ///
+		:+((st_matrix("`bestdom'"):==1):*" completely dominates ") ///
+		:+tokens(st_local("names")))', ///
+		regexm(vec(tokens(st_local("names"))' ///
+		:+((st_matrix("`bestdom'"):==1):*" completely dominates ") ///
+		:+tokens(st_local("names")))', ///
+		"completely dominates")) , ///
+		select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==2) ///
+		:*" conditionally dominates "):+tokens(st_local("names")))', ///
+		regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==2) ///
+		:*" conditionally dominates "):+tokens(st_local("names")))', ///
+		"conditionally dominates")), ///
+		select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==3) ///
+		:*" generally dominates "):+tokens(st_local("names")))', ///
+		regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==3) ///
+		:*" {txt}generally dominates{res} "):+tokens(st_local("names")))', ///
+		"generally dominates")))')						
 
+	display ""
 
-**# Program to compute built-in fitstats
-program define compute_fitstat, rclass
+}
 
-	version 15.1
+if `=e(setcount)' {	
 
-	syntax, [ll(string) obs(string) parm(string) consmodel(real 0) aic bic mcf est iscons]
+	forvalues set = 1/`=e(setcount)' {
 
-	local many_few = 0
-
-	if !strlen("`aic'`bic'`mcf'`est'") local mcf "mcf"													//no fitstat option entry is McFadden by default
-
-	if strlen("`aic'`bic'`mcf'`est'") > 3 local many_few = 1											//too many fitstat options selected
-
-	if !strlen("`ll'") local ll = "e(ll)"
-
-	if strlen("`mcf'`est'") {
-
-		if !strlen("`obs'") & strlen("`est'") local obs = "e(N)"
-
-		if strlen("`iscons'") local fitstat = `ll'														//baseline
-
-		else if !strlen("`iscons'") & strlen("`est'") local ///
-			fitstat = 1 - (`ll'/`consmodel')^(-2*`consmodel'/`obs')										//Estrella R2
-
-		else local fitstat = 1 - `ll'/`consmodel'														//McFadden R2
+		display "{txt}Parameters in set`set': `e(set`set')'"
 
 	}
 
-	else if strlen("`aic'`bic'") {
+}
 
-		if !strlen("`parm'") local parm = "e(rank)"
-
-		if !strlen("`obs'") & strlen("`bic'") local obs = "e(N)"
-
-		if strlen("`aic'") local fitstat = -2*(`ll') + 2*`parm'											//AIC
-
-		else local fitstat = -2*(`ll') + `parm'*ln(`obs')												//BIC
-
-	}
-
-	else local many_few = 1
-
-	return local style "`aic'`bic'`mcf'`est'"
-
-	return scalar many_few = `many_few'
-
-	return scalar fitstat = `fitstat'
-
+if strlen("`e(all)'") ///
+	display "{txt}Parameter estimates included in all sub-models: `e(all)'"
+		
 end
 
-**# Container object for domme specs
-version 15.1
+**# Mata function adapting Stata input for Mata and initiating the Mata environment
+version 15
 
 mata:
 
-	mata set matastrict on
+mata set matastrict on
 
-	struct domme_specs {
+void domme_2mata(
+	string scalar reg, 
+	string scalar fitstat, 
+	string scalar sets, 
+	string scalar all,
+	string scalar conditional, 
+	string scalar complete,
+	string scalar ropts, 
+	string scalar reverse,
+	string scalar weight,
+	string scalar inif, 
+	string scalar anything
+	) {
+	
+/* ~ declarations and initial structure */
+	class AssociativeArray scalar model_specs
+	
+	real scalar param, index_count, set, set_param,
+		full_fitstat, all_fitstat, cons_fitstat, 
+		obs, rc
+	
+	string scalar dv, marks, bi_type
+	
+	string rowvector params, dv_iv_pairs, dv_iv_parsed, ivs, 
+		all_pairs, sets2, set_list, set_params, 
+		dv_iv_cns, set_cns, set_prm_cns, all_cns, 
+		parm_display, eq_display
+	
+	transmorphic parser	
 
-		real scalar built_in, built_in_cons
-
-		string rowvector constraint_list
+/* ~ argument checks ~ */
+	if ( strmatch(fitstat, "e()*") ) {
+		if ( strmatch("e(), mf", "*, ???") ) {
+			display("{err}{opt fitstat()} incorrectly specified.")
+			exit(198)
+		}
+		bi_type = strtrim( tokens(fitstat, ",")[3] )
+		if ( sum(J(1, 2, bi_type):==("mcf", "est")) != 1 ) {
+			display("{err}Unknown fitstat option in {opt fitstat()}.")
+			exit(198)
+		}
+	}
+	else bi_type = ""
+	
+/* ~ process parm ests and sets ~ */
+	/*parse individual parm ests; if empty, return empty vector*/
+	if ( strlen(anything) ) {
+		parser = tokeninit(" ", "", "()")
+		tokenset(parser, anything)
+			
+		/*get all parms; remove parentehses*/
+		params = tokengetall(parser)
+		params = substr(params, 2, strlen(params):-2)
 		
-		class AssociativeArray scalar param_list
+		/*create dummy dv-iv pair vector; create index*/
+		dv_iv_pairs = 
+			J(1, sum(ustrwordcount(params)) - 2*length(params), "")
+		index_count = 0
+		
+		/*fill in dv-iv pair vector*/
+		for (param=1; param<=length(params); param++) {
+			
+			/*parse dv vs ivs on '='*/
+			dv_iv_parsed = tokens( params[param], "=")
+			
+			/*exit conditions*/
+			if ( length(dv_iv_parsed) == 1 ) {
+				display(("{err}Parameter specification in position " + 
+					strofreal(param) + " missing '='." \ 
+					"DV-IV pairs cannot be parsed."))
+				exit(111)
+			}
+			if ( (selectindex(dv_iv_parsed:=="=") != 2) | (ustrwordcount(dv_iv_parsed[1]) != 1) ) {
+				display(("{err}Parameter specification in position " + strofreal(param) + 
+					" has un-parsable DV." \ 
+						"DV-IV pairs cannot be parsed."))
+				exit(111)
+			}
+			
+			/*flag ivs and dvs*/
+			ivs = tokens(dv_iv_parsed[3..length(dv_iv_parsed)])
+			dv = strtrim(dv_iv_parsed[1])
+			
+			/*construct pairs; update index*/
+			dv_iv_pairs[index_count+1..index_count+length(ivs)] = 
+				(dv + ":"):+ivs
+			index_count = index_count + length(ivs)
+		}
+	}
+	else dv_iv_pairs = J(0, 0, "")
+	
+	/*setup all parsing; largely repeats dv-iv processing*/
+	if ( strlen(all) ) {
+		parser = tokeninit(" ", "", "()")
+		tokenset(parser, all)
+			
+		params = tokengetall(parser)
+		params = substr(params, 2, strlen(params):-2)
+		
+		all_pairs = 
+			J(1, sum(ustrwordcount(params)) - 2*length(params), "")
+		index_count = 0
+		for (param=1; param<=length(params); param++) {
+			dv_iv_parsed = tokens( params[param], "=")
+			if ( length(dv_iv_parsed) == 1 ) {
+				display(("{err}All parameter specification in position " + 
+					strofreal(param) + " missing '='." \ 
+					"DV-IV pairs cannot be parsed."))
+				exit(111)
+			}
+			if ( (selectindex(dv_iv_parsed:=="=") != 2) | (ustrwordcount(dv_iv_parsed[1]) != 1) ) {
+				display(("{err}All parameter specification in position " + strofreal(param) + 
+					" has un-parsable DV." \ 
+						"DV-IV pairs cannot be parsed."))
+				exit(111)
+			}
+			ivs = tokens(dv_iv_parsed[3..length(dv_iv_parsed)])
+			dv = strtrim(dv_iv_parsed[1])
+			all_pairs[index_count+1..index_count+length(ivs)] = 
+				(dv + ":"):+ ivs
+			index_count = index_count + length(ivs)
+		}
+	}
+	else all_pairs = J(0, 0, "")
+	
+	/*record parms implied by -all()- in Stata*/
+	st_local("allset", (length(all_pairs) ? invtokens(all_pairs) : "" ))
+	
+	/*setup sets parsing; repeats dv-iv processing with extra parsing layer*/
+	if ( strlen(sets) ) {
+		
+		/*initial parsing layer; binds sets first on brackets*/
+		parser = tokeninit(" ", "", "[]")
+		tokenset(parser, sets)
+		
+		/*parse out all sets*/
+		sets2 = tokengetall(parser)
+		sets2 = substr(sets2, 2, strlen(sets2):-2)
+		
+		/*list of sets to update with lists of parm ests*/
+		set_list = 
+			J(1, length(sets2), "")
+		
+		for (set=1; set<=length(set_list); set++) {
+			
+			/*second parsing layer; binds parm ests on parentheses*/
+			parser = tokeninit(" ", "", "()")
+			tokenset(parser, sets2[set])
+			
+			set_params = tokengetall(parser)
+			set_params = substr(set_params, 2, strlen(set_params):-2)
+			
+			set_pairs = 
+				J(1, sum(ustrwordcount(set_params)) - 2*length(set_params), "")
+			index_count = 0
+			
+			/*combined sets of parm ests within a set; note they are combined*/
+			for (set_param=1; set_param<=length(set_params); set_param++) {
+				dv_iv_parsed = tokens( set_params[set_param], "=")
+				if ( length(dv_iv_parsed) == 1 ) {
+					display(("{err}Set position " + strofreal(set) + 
+					" parameter specification in position " + strofreal(set_param) + " missing '='." \ 
+						"DV-IV pairs cannot be parsed."))
+					exit(111)
+				}
+				if ( (selectindex(dv_iv_parsed:=="=") != 2) | (ustrwordcount(dv_iv_parsed[1]) != 1) ) {
+					display(("{err}All parameter specification in position " + strofreal(param) + 
+						" has un-parsable DV." \ 
+							"DV-IV pairs cannot be parsed."))
+					exit(111)
+				}
+				ivs = tokens(dv_iv_parsed[3..length(dv_iv_parsed)])
+				dv = strtrim(dv_iv_parsed[1])
+				set_pairs[index_count+1..index_count+length(ivs)] = 
+					(dv + ":"):+ ivs
+				index_count = index_count + length(ivs)
+			}
+			set_list[set] = invtokens(set_pairs)
+			st_local("set" + strofreal(set), invtokens(set_pairs))
+			
+		}
+		
+	}
+	else set_list = J(0, 0, "")
+	
+	/*record set count in Stata environment*/
+	st_local("setcount", strofreal(length(set_list)))
+	
+/* ~ check primary analysis and set estimation sample ~ */
+	st_eclear()
+		
+	if (inif == " ") inif = "if _n > 0"
+	
+	rc = _stata(reg + " [" + weight + "] " + inif + ", " + ropts, 1)
+	
+	if ( rc ) {
+		
+		display("{err}{cmd:" + reg + "} resulted in an error.")
+		exit(rc)
+		
+	}
+		
+	if ( (!strlen(bi_type)) )	{
+		
+		if ( !length( st_numscalar( strtrim(fitstat) ) ) ) {
+			
+			display("{err}{cmd:" + fitstat + 
+				"} not returned by {cmd:" + reg + "} or {cmd:" + fitstat + 
+				"} is not scalar valued. See {help return list}.")
+			exit(198)
+			
+		}
+	}
+	
+	if ((bi_type == "est") & 
+		(!length(st_numscalar("e(ll)")))  & 
+		(!length(st_numscalar("e(N)"))) ) {
+			
+			display("{err}{cmd:e(ll} and {cmd:e(N)}" + 
+				"not returned by {cmd:" + reg + "}.")
+			exit(198)
+			
+	}
+	
+	if ((bi_type == "mcf") & 
+		(!length(st_numscalar("e(ll)")))) {
+			
+		display("{err}{cmd:e(ll} not returned by {cmd:" + reg + "}.")
+		exit(198)
+		
+	}
+	
+	full_fitstat = built_in_fitstat(fitstat, bi_type, ., 1) 
+	
+	marks = st_tempname()
+		
+	stata("generate byte " + marks[1] + " = e(sample)", 1)
+	
+	if (strmatch(weight, "fweight*") | strmatch(weight, "iweight*")) {
+		
+		stata("summarize " + marks[1] + " if " + marks[1] + 
+			" [" + weight + "]", 1)
+		
+	}
+	else stata("count if " + marks[1], 1)
+		
+	obs = st_numscalar("r(N)")
+	
+/* ~ generate constraints ~ */
+	if ((length(dv_iv_pairs) + length(set_list)) < 2) {
+		display("{err}{cmd:domme} requires at least 2 parameter estimates or parameter estimate sets.")
+		exit(198)
+	}
+	
+	rc = 0
+	
+	/*generate constraints for dv-iv pairs*/
+	if (length(dv_iv_pairs)) {
+		
+		/*initalize empty list for constraint numbers*/
+		dv_iv_cns = J(1, length(dv_iv_pairs), "")
+		
+		/*iterate across all dv-iv pairs*/
+		for (param=1; param<=length(dv_iv_pairs); param++) {
+			/*get a free constraint in memory from Stata; catch if error*/
+			rc = _stata("constraint free")
+			if (rc) break
+			
+			/*record the value of the constraint*/
+			dv_iv_cns[param] = st_macroexpand("`" + "r(free)" + "'")
+			
+			/*map the value of the constraint to a dv-iv pair*/
+			stata("constraint " + dv_iv_cns[param] + " _b[" + 
+				dv_iv_pairs[param] + "] = 0")
+		}
+		
+	}
+	
+	/*repeats dv-iv pair process but groups constraints by set*/
+	if (length(set_list)) {
+		
+		set_cns = J(1, length(set_list), "")
+		
+		for (set=1; set<=length(set_list); set++) {
+			set_params = tokens(set_list[set])
+			set_prm_cns = J(1, length(set_params), "")
+			for (param=1; param<=length(set_prm_cns); param++) {
+				rc = _stata("constraint free")
+				if (rc) break
+				set_prm_cns[param] = st_macroexpand("`" + "r(free)" + "'")
+				stata("constraint " + set_prm_cns[param] + " _b[" + 
+					set_params[param] + "] = 0")
+			}
+			set_cns[set] = invtokens(set_prm_cns)
+		}
+		
+	}
+	
+	/*repeats dv-iv pair process but groups -all()- params together*/
+	if (length(all_pairs)) {
+		
+		all_cns = J(1, length(all_pairs), "")
+		
+		for (param=1; param<=length(all_pairs); param++) {
+			rc = _stata("constraint free")
+			if (rc) break
+			all_cns[param] = st_macroexpand("`" + "r(free)" + "'")
+			stata("constraint " + all_cns[param] + " _b[" + 
+				all_pairs[param] + "] = 0")
+		}
+		
+	}
+	
+	if (rc) {
+		display("{err}{cmd:domme} cannot make any more constraints as the " + 
+					"{help constraint dir} is full (see {help constraint drop}).")
+		
+		/*drop constraints if generated*/
+		exit_constraint((dv_iv_cns, set_cns, all_cns), 198)
+	}
+	
+/* ~ begin collecting effect sizes ~ */
+	all_fitstat = 0
+
+	if ( length(all_pairs) ) {
+			
+		rc = _stata(reg + " [" + weight + "] " + inif + ", constraints(" + 
+			invtokens((dv_iv_cns, set_cns)) + ")" + ropts, 1)
+			
+		if (rc) {
+			exit_constraint((dv_iv_cns, set_cns, all_cns), rc)
+		}
+	
+		all_fitstat = built_in_fitstat(fitstat, bi_type, ., 1)
 
 	}
+				
+	rc = _stata(reg + " [" + weight + "] " + inif + ", constraints(" + 
+			invtokens((dv_iv_cns, set_cns, all_cns)) + ")" + ropts, 1)
+			
+	if (rc) {
+			exit_constraint((dv_iv_cns, set_cns, all_cns), rc)
+		}
+	
+	cons_fitstat = built_in_fitstat(fitstat, bi_type, ., 1)
+	
+	if ( bi_type == "mcf" ) {
+		full_fitstat = 1 - full_fitstat/cons_fitstat
+		if ( length(all_pairs) )
+			all_fitstat = 1 - all_fitstat/cons_fitstat
+		
+	}
+	
+	if ( length(all_pairs) & !strlen(bi_type) ) 
+		all_fitstat = all_fitstat - cons_fitstat
+	
+	full_fitstat = 
+		full_fitstat - all_fitstat - 
+			(strlen(bi_type)? 0 : cons_fitstat)
+	
+/* ~ invoke dominance ~ */	
+	model_specs.put("reg", reg)
+	model_specs.put("fitstat", fitstat)
+	model_specs.put("weight", weight)
+	model_specs.put("inif", inif)
+	model_specs.put("ropts", ropts)
+	model_specs.put("cns", (dv_iv_cns, set_cns))
+	
+	model_specs.put("reverse", reverse)
+	
+	model_specs.put("all_fitstat", all_fitstat)
+	model_specs.put("cons_fitstat", cons_fitstat)
+	
+	model_specs.put("bi_type", bi_type)
+	
+	dominance( model_specs, &domme_call(), 
+		(dv_iv_cns, set_cns)', conditional, complete, full_fitstat )
+	
+/* ~ return values ~ */		
+	if ( length(set_list) ) dv_iv_pairs = (dv_iv_pairs, "_set:set":+strofreal((1..length(set_list))))
+	
+	parm_display = eq_display = J(1, length(dv_iv_pairs), "")
+	
+	for (param=1; param<=length(dv_iv_pairs); param++) {
+		parm_display[param] = ustrsplit(dv_iv_pairs[param], ":")[2]
+		eq_display[param] = ustrsplit(dv_iv_pairs[param], ":")[1]
+	}
+	
+	st_matrixcolstripe("r(domwgts)", (eq_display \ parm_display)')
+	
+	if ( strlen(reverse) )
+		st_matrix("r(cptdom)", 
+			 st_matrix("r(cptdom)"):*-1 )
+	
+	if ( !strlen(conditional) ) {
+		st_matrixrowstripe("r(cdldom)", (eq_display \ parm_display)' )
+		st_matrixcolstripe("r(cdldom)", 
+			(J(1, length(dv_iv_pairs), "#param_ests") \ strofreal(1..length(dv_iv_pairs)))' )
+	}
+	
+	if ( !strlen(complete) ) {
+		st_matrixrowstripe("r(cptdom)", (">?":+eq_display \ parm_display)' )
+		st_matrixcolstripe("r(cptdom)", ("<?":+eq_display \ parm_display)' )
+	}
+	
+	st_matrix("r(stdzd)", 
+		(st_matrix("r(domwgts)")):/(sum(st_matrix("r(domwgts)") ) ) ) 
+	st_matrixcolstripe("r(stdzd)", (eq_display \ parm_display)' )
+			
+	st_matrix("r(ranks)", 
+		colsum( 
+			J(cols(st_matrix("r(domwgts)")), 
+				1, st_matrix("r(domwgts)") ):<=(st_matrix("r(domwgts)")') 
+			) )
+	if ( strlen(reverse) ) 
+		st_matrix("r(ranks)", 
+			colsum( 
+				J(cols(st_matrix("r(domwgts)")), 
+					1, st_matrix("r(domwgts)") ):>=(st_matrix("r(domwgts)")') 
+				) )
+	st_matrixcolstripe("r(ranks)", (eq_display \ parm_display)' )
+		
+	st_numscalar("r(N)", obs)
+	st_local("reg", reg)
+	st_local("touse", marks[1])
+	built_in
+	st_local("built_in", strofreal(strlen(bi_type)>0))
+	st_local("built_in_style", bi_type)
+	
+	st_numscalar("r(allfs)", all_fitstat)
+	st_numscalar("r(consfs)", 
+		(strlen(bi_type) ? 0 : cons_fitstat) )
+	st_numscalar("r(fullfs)", full_fitstat)
+
+/* mechanism to drop constraints if generated */
+	exit_constraint((dv_iv_cns, set_cns, all_cns), 0)
+	
+}
 
 end
 
 **# Mata function to execute 'domme-flavored' models
-version 15.1
+version 15
 
 mata:
 
 	mata set matastrict on
 
-	real scalar domme_call(string scalar Params_in_Model, ///
-	real scalar all_subsets_fitstat, real scalar constant_model_fitstat, ///
-		struct domme_specs scalar model_specs) 
-	{
+	real scalar domme_call(string scalar params_to_remove,
+		class AssociativeArray scalar model_specs) { 
 
-		real scalar fitstat, loop_length, x
+		real scalar fitstat, rc
+		
+		string scalar params_in_model
+		
+		string rowvector cns
+		
+		/*enumerate all constraints generated*/
+		cns = model_specs.get("cns")
+		
+		/*constraints indicate omitted parm est; reverse to get all included*/
+		params_in_model = 
+			select(cns, 
+				!colsum((J(length(tokens(params_to_remove)), 1, 
+					strtoreal(cns)):==J(1, length(cns), 
+						strtoreal(tokens(params_to_remove))'))))
 
-		string scalar Constraints, remove_list, key
+		rc = _stata(model_specs.get("reg") + " [" + model_specs.get("weight") + "] " + 
+			model_specs.get("inif") + ", constraints(" + 
+			invtokens(params_in_model) + ") " + model_specs.get("ropts"), 1)
 		
-		string rowvector Param_List, out_list
-		
-		real rowvector which_constraints
-		
-		Param_List = tokens(Params_in_Model)
-		
-		loop_length = length(Param_List)
-		
-		remove_list = ""
-		
-		for (x = 1; x <= loop_length; x++) {
+		/*drop constraints if generated*/
+		if (rc) {
 			
-			remove_list = remove_list + " " + ///
-				model_specs.param_list.get(Param_List[x])
+			exit_constraint(cns, rc)
 			
 		}
-		
-		out_list = tokens(remove_list)
-		
-		which_constraints = ///
-			!colsum( ///
-				J(length(out_list), 1, model_specs.constraint_list):==out_list' ///
-			)
-
-		Constraints = invtokens(select(model_specs.constraint_list, which_constraints)) 
-		
-		stata("\`reg' [\`weight'\`exp'] if \`touse', \`ropts'" + ///
-			" constraints(" + Constraints + " \`extraconstr')", 1) //estimate model/regression in Stata
 			
-
-		if (model_specs.built_in) {
-			
-			stata("compute_fitstat \`fit_opts' consmodel(" ///
-				+ strofreal(model_specs.built_in_cons) + ")", 1)
-				
-			fitstat = st_numscalar("r(fitstat)")
-				
-		}
+		fitstat = 
+			built_in_fitstat(model_specs.get("fitstat"), 
+				model_specs.get("bi_type"),
+				model_specs.get("cons_fitstat"), 0)
 		
-		else fitstat = st_numscalar(st_local("fitstat"))
-
-		fitstat = fitstat - ///
-			all_subsets_fitstat - ///
-			constant_model_fitstat 
-
+		fitstat = 
+			fitstat - 
+			model_specs.get("all_fitstat") - 
+			(strlen(model_specs.get("bi_type")) ? 
+				0 : model_specs.get("cons_fitstat") )
+		
 		return(fitstat)
 
+	}
+	
+end
+
+**# Mata function to drop constraints and exit
+version 15
+
+mata:
+
+	mata set matastrict on
+	
+	void exit_constraint(string rowvector cns_list, numeric scalar exit_num) {
+		
+		numeric scalar cns
+		
+		for (cns=1; cns<=length(cns_list); cns++) {
+			
+			stata("constraint drop " + cns_list[cns])
+			
+		}
+		
+		if (exit_num) exit(exit_num)
+		
+	}
+	
+end
+
+**# Mata program to obtain fit statistics after model estimation
+
+version 15
+
+mata:
+
+	mata set matastrict on
+	
+	numeric scalar built_in_fitstat(
+		string scalar fitstat, string scalar type, numeric scalar constant, 
+		numeric scalar isconstant
+	) {
+		
+		numeric scalar value
+		
+		/*compute McFadden R2*/
+		if (type == "mcf") {
+			
+			value = (isconstant? 
+				st_numscalar("e(ll)") : 
+				1 - st_numscalar("e(ll)")/constant)
+			
+		}
+		/*compute Estrella R2*/
+		else if (type == "est") {
+			
+			value = (isconstant? 
+				st_numscalar("e(ll)") : 
+				1 - (st_numscalar("e(ll)")/constant)^(-2*constant/st_numscalar("e(N)")) )
+			
+		}
+		/*not a built-in, pass the name and assume Stata returns it*/
+		else value = st_numscalar( strtrim(fitstat) ) 
+		
+		return(value)
+		
 	}
 
 end
@@ -1070,4 +851,12 @@ end
  // 1.1.2 - August 14, 2023
  - migrated to a sub-method in the -domin- module
  - call temporary 'dominance0.mata' (v 0.0) for time being until re-designed similar to -domin- to use 'dominance.mata' versions > 0.0
+ ---
+ domme version 1.2.0 - mth day, year
+ - most of command migrated to Mata
+	- now dependent on dominance.mata (not dominance0.mata)
+ - fixed references to 'all subsets' - should be 'all sub-models'
+ - minimum version sync-ed with -domin- at 15 (not 15.1)
+ - fixed issue with -all()- option; not consistent with documentation - required full 'all' typed (not 'a()')
+ - aic and bic disallowed with built-in
 */

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.2 August 14, 2023 J. N. Luchman}{...}
+{* *! version 1.2.0 mth, day year J. N. Luchman}{...}
 {cmd:help domme}
 
 {title:Title}
@@ -182,19 +182,21 @@ command used produces the desired scalar with constraints.
 pseudo-R-square values with constraints and expands which commands can get a 
 fit statistic using a built-in fit statistic computation. When {opt fitstat()} 
 is asked for an empty ereturned statistic indicator (i.e., {res:e()}) you must provide a
-the three character code as an option to the {opt fitstat()}. Four fit statistic 
-options are available. These options are the McFadden pseudo-R squared ({res:mcf}), 
-the Estrella pseudo-R squared ({res:est}), the Akaike information criterion ({res:aic}), 
-and the Bayesian information criterion ({res:bic}). For example, to ask {cmd:domme} to 
+the three character code as an option to the {opt fitstat()}. Two fit statistic 
+options are available. These options are the McFadden pseudo-R squared ({res:mcf}) 
+and the Estrella pseudo-R squared ({res:est}). For example, to ask {cmd:domme} to 
 compute McFadden's pseudo-R square as a fit statistic, type {res:fitstat(e(), mcf)} 
-(See Example #1).  
+(See Example #1). 
 
 {pmore}Note that {cmd:domme} has no default fit statistic and the user is 
 required to provide a fit statistic option. In addition, the built-in options 
 assume the command in {opt reg()} ereturn specific scalars. {res:mcf} only 
 requires {res: e(ll)}. {res:est} requires both {res: e(ll)} and {res: e(N)}. 
-{res:aic} requires {res: e(ll)} and {res: e(parm)}. 
-Finally, {res: bic} requires {res: e(ll)}, {res: e(parm)}, and {res: e(N)}.
+When using the built-in options the ereturned {res: e(fitstat)} option is 
+populated with the three letter code of the chosen pseudo-R square as opposed
+to the contents of the {opt fitstat()} option.
+The {res: aic} and {res: bic} built-in options have been disallowed as of 
+{cmd:domme} version 1.2.
 
 {phang}{opt sets([PEset_1] ... [PEset_x])} binds together parameter estimate 
 constraints as a set that are always constrained jointly and act as a 

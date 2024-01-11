@@ -1,4 +1,4 @@
-*! fitdom version 0.0.0  8/14/2023 Joseph N. Luchman
+*! mi_dom version 0.0.1  x/xx/202x Joseph N. Luchman
 
 program define mi_dom, eclass //history and version information at end of file
 
@@ -45,4 +45,6 @@ end
 
 /* programming notes and history
 - mi_dom version 0.0.0 - August 14, 2023
+// 0.0.1 - month day, year
+ - fixed 'which' reference - erroneously noted 'fitdom' as program - thanks to Eric Melse for bug report
 
