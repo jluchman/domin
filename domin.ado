@@ -1,4 +1,4 @@
-*! domin version 3.5.1  mth/day/202x Joseph N. Luchman
+*! domin version 3.5.1  1/12/2024 Joseph N. Luchman
 // version information at end of file
 
 **# Pre-program definition
@@ -954,7 +954,7 @@ end
  - updates to dominance.mata (to 0.1.0)
 	- updated 'epsilon' method to use st_view() instead of st_data()
 	- 'epsilon' method accepts weights
- // 3.5.1 - mth day, year
+ // 3.5.1 - January 12, 2024
  - fixed references to 'all subsets' - should be 'all sub-models'
  - fixed error in docuementation of -rforest- Example 11; needed -noesampleok-
  - removed redundant e(N) setting

@@ -1,7 +1,8 @@
-*! domme version 1.2.0 mth/day/202x Joseph N. Luchman
+*! domme version 1.2.0 1/12/2024 Joseph N. Luchman
 // version information at end of file
 
-*quietly include dominance.mata, adopath
+**# Pre-program definition
+quietly include dominance.mata, adopath
 
 program define domme, eclass 
 
@@ -38,7 +39,7 @@ if !strlen("`conditional'") matrix `cdldom' = r(cdldom)
 if !strlen("`complete'") matrix `cptdom' = r(cptdom)
 
 if strlen("`e(title)'") local title "`e(title)'"
-if !strlen("`e(title)'") & strlen("`e(cmd)'") local title "`e(cmd)'"
+else if !strlen("`e(title)'") & strlen("`e(cmd)'") local title "`e(cmd)'"
 else local title "Custom user analysis"	
 
 matrix `domwgts' = r(domwgts)
@@ -74,8 +75,6 @@ if strlen("allset") ereturn local all = "`allset'"
 if strlen("`ropts'") ereturn local ropts `"`ropts'"'
 
 ereturn local reg "`reg'"
-
-if `built_in' local fitstat "e(`built_in_style')"
 
 ereturn local fitstat "`fitstat'"
 
@@ -181,7 +180,7 @@ if `cpttest' {
 
 if `=`cpttest'*`cdltest'' {		
 
-	display _newline "{txt}Strongest dominance designations" _newline 
+	display _newline "{txt}Strongest dominance designations" 
 
 	tempname bestdom cdl gen decision
 	if strlen("`e(reverse)'") mata: st_matrix("`bestdom'", ///	
@@ -307,15 +306,14 @@ void domme_2mata(
 
 /* ~ argument checks ~ */
 	if ( strmatch(fitstat, "e()*") ) {
-		if ( strmatch("e(), mf", "*, ???") ) {
-			display("{err}{opt fitstat()} incorrectly specified.")
+		if ( !((fitstat == "e(), mcf") | (fitstat == "e()")) )  {
+			display(("{err}{opt fitstat()} incorrectly specified." \
+					"Must be set up as 'e()' or 'e(), mcf'." \ 
+					"Note that types 'est', 'aic', and 'bic' are disallowed " \ 
+					"from {cmd:domme} version 1.2."))
 			exit(198)
 		}
-		bi_type = strtrim( tokens(fitstat, ",")[3] )
-		if ( sum(J(1, 2, bi_type):==("mcf", "est")) != 1 ) {
-			display("{err}Unknown fitstat option in {opt fitstat()}.")
-			exit(198)
-		}
+		else bi_type = "mcf"
 	}
 	else bi_type = ""
 	
@@ -332,6 +330,7 @@ void domme_2mata(
 		/*create dummy dv-iv pair vector; create index*/
 		dv_iv_pairs = 
 			J(1, sum(ustrwordcount(params)) - 2*length(params), "")
+		if ( !length(dv_iv_pairs) ) dv_iv_pairs = J(0, 0, "")
 		index_count = 0
 		
 		/*fill in dv-iv pair vector*/
@@ -364,7 +363,6 @@ void domme_2mata(
 			index_count = index_count + length(ivs)
 		}
 	}
-	else dv_iv_pairs = J(0, 0, "")
 	
 	/*setup all parsing; largely repeats dv-iv processing*/
 	if ( strlen(all) ) {
@@ -487,16 +485,6 @@ void domme_2mata(
 			exit(198)
 			
 		}
-	}
-	
-	if ((bi_type == "est") & 
-		(!length(st_numscalar("e(ll)")))  & 
-		(!length(st_numscalar("e(N)"))) ) {
-			
-			display("{err}{cmd:e(ll} and {cmd:e(N)}" + 
-				"not returned by {cmd:" + reg + "}.")
-			exit(198)
-			
 	}
 	
 	if ((bi_type == "mcf") & 
@@ -733,7 +721,7 @@ mata:
 		string rowvector cns
 		
 		/*enumerate all constraints generated*/
-		cns = model_specs.get("cns")
+		cns = tokens(invtokens(model_specs.get("cns")))
 		
 		/*constraints indicate omitted parm est; reverse to get all included*/
 		params_in_model = 
@@ -741,7 +729,7 @@ mata:
 				!colsum((J(length(tokens(params_to_remove)), 1, 
 					strtoreal(cns)):==J(1, length(cns), 
 						strtoreal(tokens(params_to_remove))'))))
-
+		
 		rc = _stata(model_specs.get("reg") + " [" + model_specs.get("weight") + "] " + 
 			model_specs.get("inif") + ", constraints(" + 
 			invtokens(params_in_model) + ") " + model_specs.get("ropts"), 1)
@@ -816,14 +804,6 @@ mata:
 				1 - st_numscalar("e(ll)")/constant)
 			
 		}
-		/*compute Estrella R2*/
-		else if (type == "est") {
-			
-			value = (isconstant? 
-				st_numscalar("e(ll)") : 
-				1 - (st_numscalar("e(ll)")/constant)^(-2*constant/st_numscalar("e(N)")) )
-			
-		}
 		/*not a built-in, pass the name and assume Stata returns it*/
 		else value = st_numscalar( strtrim(fitstat) ) 
 		
@@ -852,11 +832,11 @@ end
  - migrated to a sub-method in the -domin- module
  - call temporary 'dominance0.mata' (v 0.0) for time being until re-designed similar to -domin- to use 'dominance.mata' versions > 0.0
  ---
- domme version 1.2.0 - mth day, year
+ domme version 1.2.0 - January 12, 2024
  - most of command migrated to Mata
 	- now dependent on dominance.mata (not dominance0.mata)
  - fixed references to 'all subsets' - should be 'all sub-models'
  - minimum version sync-ed with -domin- at 15 (not 15.1)
  - fixed issue with -all()- option; not consistent with documentation - required full 'all' typed (not 'a()')
- - aic and bic disallowed with built-in
+ - estrella, aic and bic disallowed with built-in; mcfadden remains
 */

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.0.0 August 14, 2023 J. N. Luchman}{...}
+{* *! version 0.0.1 January 12, 2024 J. N. Luchman}{...}
 {cmd:help mi_dom}
 {hline}{...}
 
@@ -61,7 +61,7 @@ This produces a command structure like {it:mi estimate, miopts: reg_mi} for each
 {title:Author}
 
 {p 4}Joseph N. Luchman{p_end}
-{p 4}Principal Scientist{p_end}
+{p 4}Research Fellow{p_end}
 {p 4}Fors Marsh{p_end}
 {p 4}Arlington, VA{p_end}
 {p 4}jluchman@forsmarsh.com{p_end}

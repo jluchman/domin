@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0 mth, day year J. N. Luchman}{...}
+{* *! version 1.2.0 January 12, 2024 J. N. Luchman}{...}
 {cmd:help domme}
 
 {title:Title}
@@ -44,11 +44,6 @@ Note that {cmd:domme} requires at least two parameter estimates or
 sets of parameter estimates (see option {opt sets()} below).  
 Because it is possible to submit only sets of parameter estimates, the 
 initial parameter estimates specification statement is optional. {p_end}
-
-{p 4 6 2}
-{cmd:domme} requires installation of the {cmd:moremata} package 
-(install {stata ssc install moremata:here}). {p_end}
-
 
 {title:Table of Contents}
 
@@ -144,8 +139,6 @@ removed from the {cmd: indepvars} list directly.
 The way parameter constraints are produced with the {opt all()} and {opt sets()} 
 options is identical to that of the initial statements to {cmd: domme}.
 
-... brief discussion of why _cons not included? ...
-
 {marker opts}{...}
 {title:3. Options}
 
@@ -181,22 +174,16 @@ command used produces the desired scalar with constraints.
 {pmore}The second method accommodates Stata commands' tendency to not return 
 pseudo-R-square values with constraints and expands which commands can get a 
 fit statistic using a built-in fit statistic computation. When {opt fitstat()} 
-is asked for an empty ereturned statistic indicator (i.e., {res:e()}) you must provide a
-the three character code as an option to the {opt fitstat()}. Two fit statistic 
-options are available. These options are the McFadden pseudo-R squared ({res:mcf}) 
-and the Estrella pseudo-R squared ({res:est}). For example, to ask {cmd:domme} to 
-compute McFadden's pseudo-R square as a fit statistic, type {res:fitstat(e(), mcf)} 
+is asked for an empty ereturned statistic indicator (i.e., {res:e()}). Using
+{opt fitstat(e())} produces the McFadden pseudo-R squared metric. 
+Prior to {cmd:domme} version 1.2 you had to provide a three character code as 
+an option to the {opt fitstat()}. {opt fitstat()} still accepts the the 
+McFadden pseudo-R squared (as {opt fitstat(e(), mcf)})
 (See Example #1). 
 
 {pmore}Note that {cmd:domme} has no default fit statistic and the user is 
-required to provide a fit statistic option. In addition, the built-in options 
-assume the command in {opt reg()} ereturn specific scalars. {res:mcf} only 
-requires {res: e(ll)}. {res:est} requires both {res: e(ll)} and {res: e(N)}. 
-When using the built-in options the ereturned {res: e(fitstat)} option is 
-populated with the three letter code of the chosen pseudo-R square as opposed
-to the contents of the {opt fitstat()} option.
-The {res: aic} and {res: bic} built-in options have been disallowed as of 
-{cmd:domme} version 1.2.
+required to provide a fit statistic option. The built-in option 
+assumes the command in {opt reg()} ereturns {res: e(ll)}.
 
 {phang}{opt sets([PEset_1] ... [PEset_x])} binds together parameter estimate 
 constraints as a set that are always constrained jointly and act as a 
@@ -280,30 +267,29 @@ based on overall model fit statistics that decrease with better fit (e.g., AIC, 
 
 {phang}Example 1: Path analysis/seemingly unrelated regression (SUR) with built in McFadden pseudo-R squared{p_end}
 {phang} {stata sureg (price = length foreign gear_ratio) (headroom = mpg)} {p_end}
-{phang} {stata domme (price = length foreign gear_ratio) (headroom = mpg), reg(sureg (price = length foreign gear_ratio) (headroom = mpg)) fitstat(e(), mcf)} {p_end}
+{phang} {stata domme (price = length foreign gear_ratio) (headroom = mpg), reg(sureg (price = length foreign gear_ratio) (headroom = mpg)) fitstat(e())} {p_end}
 
-{phang}Example 2: Zero-inflated Poisson with built in BIC{p_end}
+{phang}Example 2: Zero-inflated Poisson{p_end}
 {phang} {stata generate zi_pr = price*foreign} {p_end}
-{phang} {stata zip zi_pr headroom trunk,inflate(gear_ratio turn)} {p_end}
-{phang} {stata domme (zi_pr = headroom trunk) (inflate = gear_ratio turn), reg(zip zi_pr headroom trunk) f(e(), bic) ropt(inflate(gear_ratio turn)) reverse} {p_end}
+{phang} {stata zip zi_pr headroom trunk, inflate(gear_ratio turn)} {p_end}
+{phang} {stata domme (zi_pr = headroom trunk) (inflate = gear_ratio turn), reg(zip zi_pr headroom trunk) f(e()) ropt(inflate(gear_ratio turn))} {p_end}
 
-{phang}Example 3: Path analysis/SUR model with all option {p_end}
+{phang}Example 3: Path analysis/SUR model with all option{p_end}
 {phang} {stata sem (foreign <- headroom) (price <- foreign length weight) (weight <- turn)} {p_end}
-{phang} {stata estat ic} {p_end}
-{phang} {stata domme (price = length foreign) (foreign = headroom), all((price = weight) (weight = turn)) reg(sem (foreign <- headroom) (price <- foreign length weight) (weight <- turn)) fitstat(e(), aic) reverse} {p_end}
+{phang} {stata domme (price = length foreign) (foreign = headroom), all((price = weight) (weight = turn)) reg(sem (foreign <- headroom) (price <- foreign length weight) (weight <- turn)) fitstat(e())} {p_end}
 
-{phang}Example 4: Generalized negative binomial with all and parmeters treated as _cons in the dominance analysis (i.e., _b[price:foreign]) {p_end}
+{phang}Example 4: Generalized negative binomial with all and parmeters treated as _cons in the dominance analysis (i.e., _b[price:foreign] using {cmd:e(ll)} as fit statistic {p_end}
 {phang} {stata gnbreg price foreign weight turn headroom, lnalpha(weight length)} {p_end}
-{phang} {stata domme (price = turn headroom) (lnalpha = weight length), reg(gnbreg price foreign weight turn headroom) f(e(), mcf) ropt(lnalpha(weight length)) all( (price = weight) )} {p_end}
+{phang} {stata domme (price = turn headroom) (lnalpha = weight length), reg(gnbreg price foreign weight turn headroom) f(e(ll)) ropt(lnalpha(weight length)) all( (price = weight) )} {p_end}
 
 {phang}Example 5: Generalized structural equation model with factor variables{p_end}
 {phang} {stata sysuse nlsw88, clear} {p_end}
 {phang} {stata gsem (wage <- union hours, regress) (south <- age ib1.race union, logit)} {p_end}
-{phang} {stata domme (wage = union hours) (south = age union), reg(gsem (wage <- union hours, regress) (south <- age ib1.race union, logit)) fitstat(e(), mcf) sets([(south = 2.race 3.race)])}{p_end}
+{phang} {stata domme (wage = union hours) (south = age union), reg(gsem (wage <- union hours, regress) (south <- age ib1.race union, logit)) fitstat(e()) sets([(south = 2.race 3.race)])}{p_end}
 
 {phang}Example 6: Generalized structural equation model with sets to evaluate independent variables{p_end}
 {phang} {stata gsem (south union <- wage tenure ttl_exp, logit)} {p_end}
-{phang} {stata domme, reg(gsem ( south smsa union <- wage tenure ttl_exp, logit)) fitstat(e(), mcf) sets( [(south = wage) (union = wage)] [(south = tenure) (union = tenure)] [(south = ttl_exp) (union = ttl_exp)]) } 
+{phang} {stata domme, reg(gsem ( south smsa union <- wage tenure ttl_exp, logit)) fitstat(e()) sets( [(south = wage) (union = wage)] [(south = tenure) (union = tenure)] [(south = ttl_exp) (union = ttl_exp)]) } 
 {p_end}
 
 {phang}Examples 7: Replicating results from {cmd:domin}{p_end}
@@ -316,9 +302,9 @@ based on overall model fit statistics that decrease with better fit (e.g., AIC, 
 {pmore} {stata domin rep78 trunk weight length, reg(ologit) fitstat(e(r2_p)) all(turn)} {p_end}
 {pmore} {stata domme (rep78 = trunk weight length), reg(ologit rep78 trunk weight length turn) fitstat(e(), mcf) all((rep78 = turn))} {p_end}
 
-{pmore}7c: Poisson regression with BIC fitstat and constant-only comparison using reverse{p_end}
-{pmore} {stata domin price mpg rep78 headroom, reg(fitdom, fitstat_fd(r(S)[1,6]) reg_fd(poisson) postestimation(estat ic)) fitstat(e(fitstat)) consmodel reverse} {p_end}
-{pmore} {stata domme (price = mpg rep78 headroom), reg(poisson price mpg rep78 headroom) fitstat(e(), bic) reverse} {p_end}
+{pmore}7c: Poisson regression with log-likelihood fitstat and constant-only comparison using reverse{p_end}
+{pmore} {stata domin price mpg rep78 headroom, reg(poisson) fitstat(e(ll)) consmodel reverse} {p_end}
+{pmore} {stata domme (price = mpg rep78 headroom), reg(poisson price mpg rep78 headroom) fitstat(e(ll)) reverse} {p_end}
 
 {marker remark}{...}
 {title:6. Final Remarks}
@@ -330,11 +316,8 @@ and considerations apply to {cmd:domme} as well.
 {pstd}Any parameter estimates in the model's {opt reg()} specification but not in 
 the initial statements, the {opt sets()}, or {opt all()} are considered to be a 
 part of the to a constant-only model (see Examples #4 and #7c). When using {cmd:domme}'s 
-built-in fit statistics, parameter estimates in the constant-only model 
-will be used to compute the baseline model for the {res:mcf} and {res:est} 
-pseudo-R-squares but will be reported as a part of the constant model for the 
-{res:aic} and {res:bic}. Other fit statistics supplied to {cmd: domme} will, like
-{res:aic} and {res:bic}, be reported as a part of the constant model.
+built-in fit statistic, the constant-only model will be used to compute the 
+baseline model.
 
 {pstd}Note that {cmd:domme} does not check to ensure that the parameters supplied 
 it are in the model and it is the user's responsibility to ensure that the 
@@ -374,7 +357,7 @@ Please cite as:
 {title:Author}
 
 {p 4}Joseph N. Luchman{p_end}
-{p 4}Principal Scientist{p_end}
+{p 4}Research Fellow{p_end}
 {p 4}Fors Marsh{p_end}
 {p 4}Arlington, VA{p_end}
 {p 4}jluchman@forsmarsh.com{p_end}
