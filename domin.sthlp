@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.5.0 August 14, 2023 J. N. Luchman}{...}
+{* *! version 3.5.1 January 12, 2024 J. N. Luchman}{...}
 {cmd:help domin}
 
 {title:Title}
@@ -469,7 +469,7 @@ when overall model fit statistics are used that decrease with better fit (e.g., 
 {phang} {stata end} {p_end}
 {phang} {stata rforest price mpg headroom weight, type(reg)} {p_end}
 {phang} {stata matrix list e(importance)} {p_end}
-{phang} {stata domin price mpg headroom weight, reg(fitdom, reg_fd(rforest, type(reg)) postestimation(myRFr2) fitstat_fd(e(r2))) fitstat(e(fitstat))} {p_end}
+{phang} {stata domin price mpg headroom weight, reg(fitdom, reg_fd(rforest, type(reg)) postestimation(myRFr2) fitstat_fd(e(r2))) fitstat(e(fitstat)) noesampleok} {p_end}
 
 
 {marker remark}{...}
@@ -554,7 +554,7 @@ when they do not follow the traditional {it:depvar indepvars} format.  As long a
 be expressed in some way that can be evaluated in {it:depvar indepvars} format, any analysis could be 
 dominance analyzed. 
 
-{pstd}Any program used as a wrapper by {cmd:domin} must accept an {help if} statement in its {help syntax}.
+{pstd}Any program used as a wrapper by {cmd:domin} must accept an {help if} statement, a comma, and at least one (possibly optional) option argument in its {help syntax}.
 It is recommended that wrapper programs parse the inputs as a {it:varlist} as well (see Example #9a).
 
 {pstd}A third wrapper program, {cmd:fitdom}, takes inspiration from the 
@@ -608,7 +608,7 @@ Please cite as:
 {title:Author}
 
 {p 4}Joseph N. Luchman{p_end}
-{p 4}Principal Scientist{p_end}
+{p 4}Research Fellow{p_end}
 {p 4}Fors Marsh{p_end}
 {p 4}Arlington, VA{p_end}
 {p 4}jluchman@forsmarsh.com{p_end}

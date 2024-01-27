@@ -1,4 +1,4 @@
-*! domin version 3.5.0  8/14/2023 Joseph N. Luchman
+*! domin version 3.5.1  1/12/2024 Joseph N. Luchman
 // version information at end of file
 
 **# Pre-program definition
@@ -33,7 +33,7 @@ if replay() {
 **# Program definition and argument checks
 syntax varlist(min = 1 ts) [in] [if] [aw pw iw fw] , ///
 	[Reg(string) Fitstat(string) Sets(string) All(varlist fv ts) ///
-	noCONditional noCOMplete EPSilon CONSmodel REVerse noESAMPleok mi miopt(string)] // remove direct mi support - make it into a wrapper
+	noCONditional noCOMplete EPSilon CONSmodel REVerse noESAMPleok mi miopt(string)] 
 	
 if strlen("`epsilon'") {
 	local esampleok "esampleok"
@@ -64,23 +64,21 @@ else if strlen("`epsilon'") & strlen("`e(title)'") local title "Epsilon-based `r
 else local title "Custom user analysis"
 
 matrix `domwgts' = r(domwgts)
-ereturn post `domwgts' [`weight'`exp'], depname(`dv') obs(`=`r(N)'') esample(`touse')
+ereturn post `domwgts' [`weight'`exp'], depname(`dv') obs(`=r(N)') esample(`touse')
 
 **# Ereturn scalars
-ereturn scalar N = `=r(N)'
-
 matrix `domwgts' = r(domwgts)*J(colsof(r(domwgts)), 1, 1)
 if strlen("`epsilon'") ereturn scalar fitstat_o = `=`domwgts'[1,1]'
-else ereturn scalar fitstat_o = `=`domwgts'[1,1] + r(allfs) + r(consfs)'
+else ereturn scalar fitstat_o = `=r(fullfs) + r(allfs) + r(consfs)'
 
 if `:list sizeof all' ereturn scalar fitstat_a = `=r(allfs)'
 if strlen("`consmodel'") ereturn scalar fitstat_c = `=r(consfs)'
 
-if strlen("`setcnt'") {
+if strlen("`setcount'") {
 
-	ereturn hidden scalar setcnt = `setcnt'
+	ereturn hidden scalar setcount = `setcount'
 
-	forvalues x = 1/`setcnt' {
+	forvalues x = 1/`setcount' {
 	
 		fvunab set`x': `set`x''
 
@@ -90,10 +88,10 @@ if strlen("`setcnt'") {
 	
 }
 
-else ereturn hidden scalar setcnt = 0
+else ereturn hidden scalar setcount = 0
 
 **# Ereturn macros
-ereturn hidden local dtitle "`title'"
+ereturn hidden local disp_title "`title'"
 
 ereturn hidden local reverse "`reverse'"
 
@@ -141,10 +139,10 @@ if !strlen("`conditional'") {
 	ereturn matrix cdldom = `cdldom'
 }
 
-matrix `ranks' =  r(ranks)
+matrix `ranks' = r(ranks)
 ereturn matrix ranking = `ranks'
 
-matrix `stdzd' =  r(stdzd)
+matrix `stdzd' = r(stdzd)
 ereturn matrix std = `stdzd'
 
 Display
@@ -174,12 +172,12 @@ tokenize `diivs'
 
 local dv = abbrev("`e(depvar)'", 10)
 
-display _newline "{txt}General dominance statistics: `e(dtitle)'" _newline ///
+display _newline "{txt}General dominance statistics: `e(disp_title)'" _newline ///
 "{txt}Number of obs{col 27}={res}{col 40}" %12.0f e(N) 
 
 display "{txt}Overall Fit Statistic{col 27}={res}{col 36}" %16.4f e(fitstat_o)
 
-if !missing(e(fitstat_a)) display "{txt}All Subsets Fit Stat.{col 27}={res}{col 36}" %16.4f e(fitstat_a)
+if !missing(e(fitstat_a)) display "{txt}All Sub-models Fit Stat.{col 27}={res}{col 36}" %16.4f e(fitstat_a)
 
 if !missing(e(fitstat_c)) display "{txt}Constant-only Fit Stat.{col 27}={res}{col 36}" %16.4f e(fitstat_c)
 
@@ -222,7 +220,7 @@ if `cpttest' {
 
 if e(estimate) == "dominance" & `=`cpttest'*`cdltest'' {
 
-	display _newline "{res}Strongest dominance designations" _newline 
+	display _newline "{txt}Strongest dominance designations" _newline 
 
 	tempname bestdom cdl gen decision
 	
@@ -261,7 +259,7 @@ if e(estimate) == "dominance" & `=`cpttest'*`cdltest'' {
 	
 	local names `:colnames e(b)'
 	
-	mata: display((select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==1):*" completely dominates "):+tokens(st_local("names")))', ///
+	mata: display(("{txt}", select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==1):*" completely dominates "):+tokens(st_local("names")))', ///
 		regexm(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==1):*" completely dominates "):+tokens(st_local("names")))', ///
 		"completely dominates")) , ///
 		select(vec(tokens(st_local("names"))':+((st_matrix("`bestdom'"):==2):*" conditionally dominates "):+tokens(st_local("names")))', ///
@@ -275,9 +273,9 @@ if e(estimate) == "dominance" & `=`cpttest'*`cdltest'' {
 
 }
 
-if `=e(setcnt)' {
+if `=e(setcount)' {
 
-	forvalues x = 1/`=e(setcnt)' {
+	forvalues x = 1/`=e(setcount)' {
 
 		display "{txt}Variables in set`x': `e(set`x')'"
 		
@@ -285,7 +283,7 @@ if `=e(setcnt)' {
 	
 }
 
-if strlen("`e(all)'") display "{txt}Variables included in all subsets: `e(all)'"
+if strlen("`e(all)'") display "{txt}Variables included in all sub-models: `e(all)'"
 
 end
 
@@ -381,17 +379,17 @@ void domin_2mata(
 	
 	/*set processing*/
 	if ( strlen(sets) ) {
-		/*setup parsing sets -  bind on parentheses*/
+		/*setup parsing sets - bind on parentheses*/
 		parser = tokeninit(" ", "", "()")
 		tokenset(parser, sets)
 		
 		/*get all sets and remove parentehses*/
 		iv_sets = tokengetall(parser)
 		iv_sets = substr(iv_sets, 2, strlen(iv_sets):-2)
-		st_local("setcnt", strofreal( length(iv_sets) ) )
+		st_local("setcount", strofreal( length(iv_sets) ))
 		for (set=1; set<=length(iv_sets); set++) {
 			
-			st_local("set"+strofreal(set), iv_sets[set] )
+			st_local("set"+strofreal(set), iv_sets[set])
 			
 			rc = _stata("fvunab waste: " + iv_sets[set], 1)
 			if ( rc ) {
@@ -457,7 +455,13 @@ void domin_2mata(
 		
 		stata("generate byte " + marks[1] + " = e(sample)", 1)
 		
-		stata("count if " + marks[1], 1)
+		if (strmatch(weight, "fweight*") | strmatch(weight, "iweight*")) {
+		
+		stata("summarize " + marks[1] + " if " + marks[1] + 
+			" [" + weight + "]", 1)
+		
+		}
+		else stata("count if " + marks[1], 1)
 		
 		obs = st_numscalar("r(N)")
 	
@@ -475,7 +479,13 @@ void domin_2mata(
 		stata("markout " + marks[1] + " " + marks[2] + 
 			" " + invtokens(ivs) + " " + all, 1)
 			
-		stata("count if " + marks[1], 1)
+		if (strmatch(weight, "fweight*") | strmatch(weight, "iweight*")) {
+		
+		stata("summarize " + marks[1] + " if " + marks[1] + 
+			" [" + weight + "]", 1)
+		
+		}
+		else stata("count if " + marks[1], 1)
 			
 		obs = st_numscalar("r(N)")
 	
@@ -570,7 +580,7 @@ void domin_2mata(
 
 	}
 	
-	cons_fitstat = 0	
+	cons_fitstat = 0
 	
 	if ( strlen(consmodel) ) {
 			
@@ -677,8 +687,9 @@ void domin_2mata(
 	st_local("touse", marks[1])
 	st_local("dv", dv)
 	
-	st_numscalar("r(allfs)", model_specs.get("all_fitstat"))
-	st_numscalar("r(consfs)", model_specs.get("cons_fitstat"))
+	st_numscalar("r(allfs)", all_fitstat)
+	st_numscalar("r(consfs)", cons_fitstat)
+	st_numscalar("r(fullfs)", full_fitstat)
 	
 }
 
@@ -943,8 +954,13 @@ end
  - updates to dominance.mata (to 0.1.0)
 	- updated 'epsilon' method to use st_view() instead of st_data()
 	- 'epsilon' method accepts weights
- ** 
+ // 3.5.1 - January 12, 2024
+ - fixed references to 'all subsets' - should be 'all sub-models'
+ - fixed error in docuementation of -rforest- Example 11; needed -noesampleok-
+ - removed redundant e(N) setting
+ - fixed N computation with -fweight- and -iweight-
  ---
+ 
  future domin
  ** planned ** - depreciated by -domin2-'s bmaregress interface; eventually will be defunct and enveloped by its interface
  */

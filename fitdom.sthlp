@@ -134,7 +134,7 @@ matrix name (i.e., {cmd:r(S)}) but also the matrix subscript selecting the AIC i
 {title:Author}
 
 {p 4}Joseph N. Luchman{p_end}
-{p 4}Principal Scientist{p_end}
+{p 4}Research Fellow{p_end}
 {p 4}Fors Marsh{p_end}
 {p 4}Arlington, VA{p_end}
 {p 4}jluchman@forsmarsh.com{p_end}
