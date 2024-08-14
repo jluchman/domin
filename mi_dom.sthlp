@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.0.1 January 12, 2024 J. N. Luchman}{...}
+{* *! version 0.0.2 August 13, 2024 J. N. Luchman}{...}
 {cmd:help mi_dom}
 {hline}{...}
 
@@ -12,7 +12,7 @@ Wrapper program for {cmd:domin} to obtain multiply imputed fit statistics {p_end
 
 {phang}
 {cmd:mi_dom} {it:depvar} {it:indepvars} {it:{help if} {weight}} {cmd:,} 
-{opt {ul on}r{ul off}eg_mi(command, command_options)} 
+{opt {ul on}r{ul off}eg_mi(command[, command_options])} 
 {opt {ul on}f{ul off}itstat_mi(scalar)}
 [{opt {ul on}MIO{ul off}pt(string)}]
 
@@ -42,7 +42,7 @@ intended to add flexiblity to how {cmd:domin} can accommodate multiply imputed d
 {phang}{opt fitstat_mi()} is the contents of the {opt fitstat()} option that would normally be supplied 
 to {cmd:domin}.
 
-{phang}{opt miopts()} are the options passed to {cmd:mi estimate} that will be filled in prior to the colon. 
+{phang}{opt miopt()} are the options passed to {cmd:mi estimate} that will be filled in prior to the colon. 
 This produces a command structure like {it:mi estimate, miopts: reg_mi} for each run of the command in 
 {opt reg_mi()}.
 
