@@ -143,3 +143,5 @@ Basic version
  - removed noconstant option - not consistently applied, not sure why one would ever use it
  - unhide epsilon -  note that it produces Pxy as a metric
  - use st_view as opposed to st_data for efficiency
+ 
+ ** mi-able?

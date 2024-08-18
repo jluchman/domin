@@ -106,3 +106,5 @@ Basic version
  - xtmopt defunct - gives warning
  - noconstant option removed
  - returns e(smaple) to satisfy -domin- 3.5 requirements
+ 
+ ** mi-able?

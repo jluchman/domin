@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.5.1 January 12, 2024 J. N. Luchman}{...}
+{* *! version 3.5.2 August 13, 2024 J. N. Luchman}{...}
 {cmd:help domin}
 
 {title:Title}
@@ -624,8 +624,9 @@ Please cite as:
 
 {title:Acknowledgements}
 
-{pstd}Thanks to Nick Cox, Ariel Linden, Amanda Yu, Torsten Neilands, Arlion N, Eric Melse, De Liu, 
-Patricia "Economics student", and Annesa Flentje for suggestions and bug reporting.
+{pstd}Thanks to Nick Cox, Ariel Linden, Amanda Yu, Torsten Neilands, Arlion N, 
+Eric Melse, De Liu, Patricia "Economics student", Annesa Flentje, Felix Bittman, 
+and Katherine/Kathy Chan for suggestions and bug reporting.
 
 
 
