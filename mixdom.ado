@@ -1,6 +1,6 @@
-*! mixdom version 2.1.0 8/14/2023 Joseph N. Luchman
+*! mixdom version 2.1.1 12/20/2024 Joseph N. Luchman
 
-version 15
+version 16
 
 program define mixdom, eclass
 
@@ -106,5 +106,7 @@ Basic version
  - xtmopt defunct - gives warning
  - noconstant option removed
  - returns e(smaple) to satisfy -domin- 3.5 requirements
+ // 2.1.1 - December 20, 2024
+ -  version to 16 consistent with base -domin-
  
  ** mi-able?

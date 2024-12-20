@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.0.2 August 13, 2024 J. N. Luchman}{...}
+{* *! version 0.0.3 December 20, 2024 J. N. Luchman}{...}
 {cmd:help mi_dom}
 {hline}{...}
 

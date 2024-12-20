@@ -1,8 +1,8 @@
-*! fitdom version 0.1.0  8/14/2023 Joseph N. Luchman
+*! fitdom version 0.1.1  12/20/2024 Joseph N. Luchman
 
 program define fitdom, eclass //history and version information at end of file
 
-version 15
+version 16
 
 syntax varlist(min = 1 ts fv) if [aw pw iw fw] , [Reg_fd(string) Postestimation(string) Fitstat_fd(string)]
 
@@ -28,3 +28,5 @@ end
  ---
  fitdom version 0.1.0 - August 14, 2023
 -  minimum version 15 consistent with base -domin-
+// 0.1.1 - December 20, 2024
+-  minimum version to 16 consistent with base -domin-

@@ -1,4 +1,4 @@
-*! domme version 1.2.0 1/12/2024 Joseph N. Luchman
+*! domme version 1.2.1 12/20/2024 Joseph N. Luchman
 // version information at end of file
 
 **# Pre-program definition
@@ -6,7 +6,7 @@ quietly include dominance.mata, adopath
 
 program define domme, eclass 
 
-	version 15
+	version 16
 
 	if replay() & !strlen("`0'") {
 
@@ -839,4 +839,8 @@ end
  - minimum version sync-ed with -domin- at 15 (not 15.1)
  - fixed issue with -all()- option; not consistent with documentation - required full 'all' typed (not 'a()')
  - estrella, aic and bic disallowed with built-in; mcfadden remains
+ // 1.2.1 - December 20, 2024
+ - version incremented to 16 consistent with base -domin-
+ // 1.2.2 - ....
+ ** planned  -- fixed parsing for outcomes to accommodate factor variables (gsem)
 */

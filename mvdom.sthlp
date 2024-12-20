@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0 August 14, 2023 J. N. Luchman}{...}
+{* *! version 1.2.1 December 20, 2024 J. N. Luchman}{...}
 {cmd:help mvdom}
 {hline}{...}
 
