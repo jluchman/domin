@@ -1,13 +1,13 @@
-*! domin version 3.5.2  8/13/2024 Joseph N. Luchman
+*! domin version 3.5.3  12/20/2024 Joseph N. Luchman
 // version information at end of file
 **# Pre-program definition
 quietly include dominance.mata, adopath
 program define domin, eclass 
-if `c(version)' < 15 {
-	display "{err}As of {cmd:domin} version 3.5.0, the minimum version of Stata is 15." _newline "If you have an older version of Stata, most functionality of {cmd:domin} is available from" _newline `"{stata net install st0645:this} Stata journal article back to version 12."'
+if `c(version)' < 16 {
+	display "{err}As of {cmd:domin} version 3.5.3, the minimum version of Stata is 16." _newline "If you have an older version of Stata, most functionality of {cmd:domin} is available from" _newline `"{stata net install st0645:this} Stata journal article back to version 12."'
 	exit 198
 }
-version 15
+version 16
 if replay() {
 	if ("`e(cmd)'" != "domin") error 301
 	if _by() error 190
@@ -127,7 +127,7 @@ end
 /*Display program*/
 program define Display
 
-version 15
+version 16
 
 tempname domwgts sdomwgts ranks
 
@@ -263,7 +263,7 @@ if strlen("`e(all)'") display "{txt}Variables included in all sub-models: `e(all
 end
 
 **# Mata function adapting Stata input for Mata and initiating the Mata environment
-version 15
+version 16
 mata:
 mata set matastrict on
 void domin_2mata(string scalar reg, string scalar fitstat, string scalar sets, string scalar all, string scalar conditional, string scalar complete, string scalar epsilon, string scalar consmodel, string scalar reverse, string scalar esampleok, string scalar weight, string scalar inif, string scalar varlist) {
@@ -340,7 +340,7 @@ void domin_2mata(string scalar reg, string scalar fitstat, string scalar sets, s
 		}
 		
 		/*combine to single iv vector*/
-		if ( length(ivs) > 1 ) ivs = (ivs, iv_sets)
+		if ( length(ivs) > 0 ) ivs = (ivs, iv_sets)
 		else ivs = iv_sets
 	
 	}
@@ -581,7 +581,7 @@ void domin_2mata(string scalar reg, string scalar fitstat, string scalar sets, s
 end
 
 **# Mata function to execute 'domin-flavored' models
-version 15
+version 16
 
 mata:
 
@@ -607,7 +607,7 @@ mata:
 	
 end
 **# Mata function to execute built-in linear regression
-version 15
+version 16
 mata:
 mata set matastrict on
 real scalar domin_regress(string scalar IVs_in_model, class AssociativeArray scalar model_specs) { 
@@ -824,6 +824,9 @@ end
  - fixed error using -all- with factor or time-series variables with the built-in method (thanks to Felix Bittman)
  - -consmodel- not allowed with built-in regress method
  - -mi_dom- and factor- and time-series variable error fixes (thanks to katherine // kathy chan)
+ // 3.5.3 - December 20, 2024
+ -  version of all programs at a minimum to 16 to accommodate the use of usrsplit() which is not available before v 16
+ -  fixed error in checking number of IVs with a combinatoin of IVs and IV sets when there was only one IV
  ---
  
  future domin

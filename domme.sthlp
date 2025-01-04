@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0 January 12, 2024 J. N. Luchman}{...}
+{* *! version 1.2.1 December 20, 2024 J. N. Luchman}{...}
 {cmd:help domme}
 
 {title:Title}

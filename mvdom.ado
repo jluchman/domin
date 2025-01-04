@@ -1,6 +1,6 @@
-*! mvdom version 1.2.0 8/14/2023 Joseph N. Luchman
+*! mvdom version 1.2.1 12/20/2024 Joseph N. Luchman
 
-version 15
+version 16
 
 program define mvdom, eclass
 
@@ -58,7 +58,7 @@ else {
 end
 
 /*Mata function to execute epsilon-based relative importance with mvdom*/
-version 15
+version 16
 
 mata: 
 
@@ -143,5 +143,7 @@ Basic version
  - removed noconstant option - not consistently applied, not sure why one would ever use it
  - unhide epsilon -  note that it produces Pxy as a metric
  - use st_view as opposed to st_data for efficiency
+ // 1.2.1 - December 20, 2024
+ -  version to 16 consistent with base -domin-
  
  ** mi-able?

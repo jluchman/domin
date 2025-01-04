@@ -1,8 +1,8 @@
-*! mi_dom version 0.0.2  8/13/2024 Joseph N. Luchman
+*! mi_dom version 0.0.3  12/20/2024 Joseph N. Luchman
 
 program define mi_dom, eclass //history and version information at end of file
 
-version 15
+version 16
 
 syntax varlist(min = 1 fv ts) if [aw fw iw pw], Reg_mi(string) Fitstat_mi(string) [MIOpt(string)] 
 
@@ -49,3 +49,5 @@ end
 // 0.0.2 - August 13, 2024
  - allows factor- and time-series variables - thanks to katherine // kathy chan for bug report
  - fix to documentation of -reg_mi()- option
+// 0.0.3 -December 20, 2024
+-  version to 16 consistent with base -domin-
