@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.5.3 December 20, 2024 J. N. Luchman}{...}
+{* *! version 3.6.0 May 5, 2025 J. N. Luchman}{...}
 {cmd:help domin}
 
 {title:Title}
@@ -589,18 +589,6 @@ reduce the bias of coefficient estimates and dominance statistics when the imput
 {p 4 8 2}Tonidandel, S., & LeBreton, J. M. (2010). Determining the relative importance of predictors in logistic regression: An extension of relative weight analysis. {it:Organizational Research Methods, 13(4)}, 767-781.{p_end}
 {p 4 8 2}Thomas, D. R., Zumbo, B. D., Kwan, E., & Schweitzer, L. (2014). On Johnson's (2000) relative weights method for assessing variable importance: A reanalysis. {it:Multivariate Behavioral Research, 49(4)}, 329-338.{p_end} 
 
-{title:Development Webpage}
-
-{phang} Additional discussion of results, options, and conceptual issues on: 
-
-{phang}{browse "https://github.com/fmg-jluchman/domin/wiki"}
-
-{phang} Please report bugs, requests for features, and contribute to as well as follow on-going development of {cmd:domin} on:
-
-{phang}{browse "http://github.com/fmg-jluchman/domin"}
-
-{title:Article}
-
 Please cite as:
 
 {p 4 8 2}Luchman, J. N. (2021). Determining relative importance in Stata using dominance analysis: domin and domme. {it:The Stata Journal, 21(2)}, 510–538. https://doi.org/10.1177/1536867X211025837{p_end}
@@ -620,13 +608,15 @@ Please cite as:
 {browse "https://ideas.repec.org/c/boc/bocode/s457543.html":shapley2}, 
 {browse "https://CRAN.R-project.org/package=domir":R package domir}, 
 {browse "https://CRAN.R-project.org/package=relaimpo":R package relaimpo},
-{browse "https://cran.r-project.org/web/packages/domir/vignettes/domir_basics.html": Detailed description of Dominance Analysis}
+{browse "https://cran.r-project.org/web/packages/domir/vignettes/domir_basics.html":Detailed description of Dominance Analysis}
+{browse "http://github.com/fmg-jluchman/domin":Webpage}
+{phang}{browse "https://github.com/fmg-jluchman/domin/wiki":Wiki}
 
 {title:Acknowledgements}
 
 {pstd}Thanks to Nick Cox, Ariel Linden, Amanda Yu, Torsten Neilands, Arlion N, 
 Eric Melse, De Liu, Patricia "Economics student", Annesa Flentje, Felix Bittman, 
-and Katherine/Kathy Chan for suggestions and bug reporting.
+Katherine/Kathy Chan, and Jurjen Iedema for suggestions and bug reporting.
 
 
 

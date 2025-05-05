@@ -1,20 +1,20 @@
 {smcl}
-{* *! version 0.0.3 December 20, 2024 J. N. Luchman}{...}
+{* *! version 0.0.4 January 1, 2025 J. N. Luchman}{...}
 {cmd:help mi_dom}
 {hline}{...}
 
 {title:Title}
 
 {pstd}
-Wrapper program for {cmd:domin} to obtain multiply imputed fit statistics {p_end}
+Multiple imputation wrapper program for {cmd:domin} {p_end}
 
 {title:Syntax}
 
 {phang}
-{cmd:mi_dom} {it:depvar} {it:indepvars} {it:{help if} {weight}} {cmd:,} 
+{cmd:mi_dom} {it:depvar} {it:indepvars} {it:[{help if}] {weight}} {cmd:,} 
 {opt {ul on}r{ul off}eg_mi(command[, command_options])} 
 {opt {ul on}f{ul off}itstat_mi(scalar)}
-[{opt {ul on}MIO{ul off}pt(string)}]
+[{opt {ul on}mio{ul off}pt(mi_opts)}]
 
 {phang}
 {help fvvarlist: Factor} and {help tsvarlist:time series variables} are allowed for commands in {opt reg_mi()} 
@@ -24,27 +24,38 @@ that accept them. {cmd:aweight}, {cmd:iweight}s, {cmd:pweight}s, and {cmd:fweigh
 {title:Description}
 
 {pstd}
-{cmd:mi_dom} adds an additional layer to {cmd:domin} in which the user calls the {cmd:mi_dom} program in 
-{cmd:domin} and the {cmd:mi_dom} program runs the {cmd:mi estimate} compatible command in {opt reg_mi()}, 
-saves results for all multiply imputed datasets, and then averages them before submitting them as 
-{cmd:e(fitstat)} for use in the dominance analysis.
+{cmd:mi_dom} is a specialized {help mi estimate:multiple imputation} command that is designed for use in {help domin:dominance analysis}.
+{cmd:mi_dom} is an alternative to the {cmd:mi estimate} prefix for the dominance analysis of estimation commands that averages the fit statistics returned by individual imputations so that one submodel returns one fit statistic.
+For an example, see {cmd:domin}'s {help domin##examp:Example #10}.
 
 {pstd}
-This wrapper command is a replacement for the built in {opt mi} in {cmd:domin} versions prior to 3.5 and is 
-intended to add flexiblity to how {cmd:domin} can accommodate multiply imputed data. See Example #10 in the 
-{cmd:domin} helpfile for an example of {cmd:mi_dom} in use.
+{cmd:mi_dom} is intended to be called directly by {cmd:domin} and will act as an intermediary layer of processing between {cmd:domin} and the estimation command that will use {cmd:mi estimate}.
+Specifically, {cmd:mi_dom} will call the command in {opt reg_mi()} and average the results for the scalar in {opt fitstat_mi()} across all imputations.
+Thus, {cmd:mi_dom} is called directly in {cmd:domin}'s {opt reg()} option.
+{cmd:mi_dom}'s options are then also supplied to {cmd:domin} as command options in the {opt reg()} option.
+Addiiontally, the averaged fit staistic scalar {cmd:e(fitstat)} is called directly in {cmd:domin}'s {opt fitstat()} option.
+
+{pstd}
+{cmd:mi_dom} is intended for use only as a wrapper program with {cmd:domin} and is not recommended for use as an estimation command outside of {cmd:domin}.
+{cmd:mi_dom} is a replacement for the built in {opt mi} option for {cmd:domin} versions prior to 3.5.0.
 
 {marker options}{...}
 {title:Options}
 
-{phang}{opt reg_mi()} is the contents of the {opt reg()} option that would normally be supplied to {cmd:domin}.
+{phang}{opt reg_mi()} is the command and command options implementing the predictive model that will be applied to {cmd:mi estimate}.
+This option is parsed in the same way as the {opt reg()} option of {help domin##opts:domin}.
 
-{phang}{opt fitstat_mi()} is the contents of the {opt fitstat()} option that would normally be supplied 
-to {cmd:domin}.
+{phang}{opt fitstat_mi()} identifies the scalar returned by the command in {opt reg_mi()} that will be averaged.
+This option is usedd in the same way as the {opt fitstat()} option of {help domin##opts:domin}.
 
-{phang}{opt miopt()} are the options passed to {cmd:mi estimate} that will be filled in prior to the colon. 
-This produces a command structure like {it:mi estimate, miopts: reg_mi} for each run of the command in 
-{opt reg_mi()}.
+{phang}{opt miopt()} are options passed to {cmd:mi estimate}. 
+For example, the command:
+
+{pmore}{cmd:mi_dom depvar indepvars, miopt(mi_opts) reg_mi(command)} 
+
+{pmore}would be passed to {cmd:mi estimate} as:
+
+{pmore}{cmd:mi estimate, mi_opts: command depvar indepvars}
 
 {title:Saved results}
 
@@ -52,11 +63,11 @@ This produces a command structure like {it:mi estimate, miopts: reg_mi} for each
 
 {synoptset 16 tabbed}{...}
 {p2col 5 15 19 2: scalars}{p_end}
-{synopt:{cmd:e(fitstat)}}The value of the fit statistic called by {opt postestimation}{p_end}
+{synopt:{cmd:e(fitstat)}}The value of the averaged fit in {opt fitstat_mi()} across all imputations{p_end}
 {p2col 5 15 19 2: macros}{p_end}
 {synopt:{cmd:e(title)}}Adds "Mulltiply Imputed:" to the {cmd:e(title)} of the command in {opt reg_mi()}{p_end}
 {p2col 5 15 19 2: functions}{p_end}
-{synopt:{cmd:e(sample)}}marks estimation sample{p_end}
+{synopt:{cmd:e(sample)}}marks estimation sample; all missing observations on {it:depvar} and {it:indepvars} are assumed to be complete{p_end}
 
 {title:Author}
 

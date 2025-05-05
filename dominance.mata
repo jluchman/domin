@@ -109,7 +109,7 @@ void dominance(
 	}
 	
 	fitstat_vector[1] = full_fitstat
-
+	
 	/*define the incremental prediction matrices and combination rules*/
 	IV_antiindicator_matrix = (IV_indicator_matrix:-1) //matrix flagging which IVs are not included in each model and setting them up for a subtractive effect
 	
@@ -168,7 +168,7 @@ void dominance(
 		for (x = 1; x <= comb(number_of_IVs, 2); x++) {  
 		
 			select2IVs = cvpermute(cpt_permute_container) //invoke 'cvpermute' on the container - selects a unique combination of two IVs
-		
+			
 			select2IVfits = colsum(select(IV_indicator_matrix, select2IVs)):==1 //filter IV indicator matrix to include just those fit statistic columns that inlude focal IVs - then only keep the columns that have one (never both or neither) of the IVs 
 		
 			focal_row_numbers = (1..rows(IV_indicator_matrix)) //sequence of numbers for selecting specific rows indicating focal IVs
@@ -184,18 +184,21 @@ void dominance(
 			compare_two_IVs = ///
 				(select(sorted_two_IVs[,cols(sorted_two_IVs)], mod(1::rows(sorted_two_IVs), 2)), /// //select the odd rows for comparison (see constuction of 'sorted_two_IVs')
 				select(sorted_two_IVs[,cols(sorted_two_IVs)], mod((1::rows(sorted_two_IVs)):+1, 2))) //select the even rows for comparison 
-			
-			cpt_desig = ///
+			/*cpt_desig = ///
 				(all(compare_two_IVs[,1]:>compare_two_IVs[,2]), /// //are all fit statistics in odd/first variable larger than the even/second variable?
 				all(compare_two_IVs[,1]:<compare_two_IVs[,2])) //are all fit statistics in even variable larger than the odd variable?
 			
 			if (cpt_desig[2] == 1) complete_dominance[focal_row_numbers[1], focal_row_numbers[2]] = 1 	//if the even/second variables' results are all larger, record "1"...
 				else if (cpt_desig[1] == 1) complete_dominance[focal_row_numbers[1], focal_row_numbers[2]] = -1 //else if the odd/first variables' results are all larger, record "-1"...
-					else complete_dominance[focal_row_numbers[1], focal_row_numbers[2]] = 0 //otherwise record "0"...
+					else complete_dominance[focal_row_numbers[1], focal_row_numbers[2]] = 0 //otherwise record "0"... */
+			cpt_desig = sum((compare_two_IVs[,1]:>compare_two_IVs[,2]):/rows(compare_two_IVs))
+			complete_dominance[focal_row_numbers[2], focal_row_numbers[1]] = cpt_desig
+			complete_dominance[focal_row_numbers[1], focal_row_numbers[2]] = 1 - cpt_desig
+				
 	
 		}
 		
-		complete_dominance = complete_dominance + complete_dominance'*-1 //make cptdom matrix symmetric
+		//complete_dominance = complete_dominance + complete_dominance'*-1 //make cptdom matrix symmetric
 	
 		st_matrix("r(cptdom)", complete_dominance) //return r-class matrix "cptdom"
 	
