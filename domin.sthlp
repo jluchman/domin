@@ -610,7 +610,7 @@ Please cite as:
 {browse "https://CRAN.R-project.org/package=relaimpo":R package relaimpo},
 {browse "https://cran.r-project.org/web/packages/domir/vignettes/domir_basics.html":Detailed description of Dominance Analysis}
 {browse "http://github.com/fmg-jluchman/domin":Webpage}
-{phang}{browse "https://github.com/fmg-jluchman/domin/wiki":Wiki}
+{browse "https://github.com/fmg-jluchman/domin/wiki":Wiki}
 
 {title:Acknowledgements}
 

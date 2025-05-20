@@ -1,4 +1,4 @@
-*! domme version 1.3.0 x/x/202x Joseph N. Luchman
+*! domme version 1.3.0 5/20/2025 Joseph N. Luchman
 
 **# Pre-program definition
 quietly include dominance.mata, adopath
@@ -808,9 +808,7 @@ end
  // 1.2.1 - December 20, 2024
  - version incremented to 16 consistent with base -domin-
  ---
- domme version 1.3.0 - mth day, 202x
+ domme version 1.3.0 - May 20, 2025
  - update complete dominance designations to complete dominance proportions
  - update display on complete and conditional dominance matrices
- -- estats!
- ** planned -- fix parsing for outcomes to accommodate factor variables (gsem)
 */
