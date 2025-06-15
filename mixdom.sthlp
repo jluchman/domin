@@ -1,18 +1,18 @@
 {smcl}
-{* *! version 2.1.1 December 20, 2024 J. N. Luchman}{...}
+{* *! version 2.2.0 December 26, 2024 J. N. Luchman}{...}
 {cmd:help mixdom}
 {hline}{...}
 
 {title:Title}
 
 {pstd}
-Wrapper program for {cmd:domin} to conduct linear mixed effects regression dominance analysis{p_end}
+Linear mixed effects regression wrapper program for {cmd:domin}{p_end}
 
 {title:Syntax}
 
 {phang}
-{cmd:mixdom} {it:depvar} {it:indepvars} {it:{help if}} {weight} {cmd:,} 
-{opt id(idvar)} [{opt {ul on}re{ul off}opt(re_options)} {opt {ul on}m{ul off}opt(mixed_options)}]
+{cmd:mixdom} {it:{help varname:depvar}} {it:{help varlist:indepvars}} [{it:{help if}}] {weight} {cmd:,} 
+{opt id(levelvar)} [{opt {ul on}re{ul off}opt(re_options)} {opt {ul on}m{ul off}opt(mixed_options)}]
 
 {phang}{cmd:pweight}s and {cmd:fweight}s are allowed (see help {help weights:weights}).  {help fvvarlist:Factor} and 
 {help tsvarlist:time series variables} are allowed.  
@@ -20,17 +20,17 @@ Wrapper program for {cmd:domin} to conduct linear mixed effects regression domin
 {title:Description}
 
 {pstd}
-{cmd:mixdom} sets the data up in a way to allow for the dominance analysis of a linear mixed effects regression by utilizing {help mixed}.
-The method outlined here follows that for the within- and between-cluster Snijders and Bosker (1994) R2 metric described by Luo and Azen (2013). 
+{cmd:mixdom} is a specialized {help mixed:linear mixed effects regression} command that is designed with a syntax structure that can be used in {help domin:dominance analysis}.
+{cmd:mixdom} also returns two model fit metrics recommended for use by Luo and Azen (2013).
+These two fit metrics are the the within- and between-cluster R2 metrics (Snijders & Bosker, 1994).
+In addition, consistent with Luo and Azen, {cmd:mixdom} only allows for one a random intercept associated with the cluster identifier variable in {opt id()}.
+For an example, see {cmd:domin}'s {help domin##examp:Example #8}.
 
 {pstd}
-{cmd:mixdom} only allows 1 level of clustering in the data (i.e., 1 random effect), which must be the cluster constant/mean/intercept. Luo and 
-Azen (2013) recommend that even if random coefficients are present in the data, they should be restricted to a fixed effect only in the dominance 
-analysis.
-
-{pstd}
-{cmd:mixdom} is intended for use only as a wrapper program with {cmd:domin} for the dominance analysis of mixed-effects linear regression, and its syntax is designed to conform with {cmd:domin}'s expectations.  
-It is not recommended for use as an estimation command outside of {cmd:domin}.
+{cmd:mixdom} is intended for use only as a wrapper program with {cmd:domin} and is not recommended for use as an estimation command outside of {cmd:domin}. 
+As of version 2.2.0, {cmd:mixdom} is compatible with {cmd:domin}'s {help mi_dom} wrapper command. 
+To do so, {cmd:mixdom} returns uninformative {cmd:b} and {cmd:V} matrices that are both values of 1.
+This is because {cmd:mixdom} is intended to be used only for its fit statistics and these two matrices are irrelevant for dominance analysis.
 
 {pstd}
 Note that negative R2 values indicate likely model misspecification.
@@ -38,13 +38,19 @@ Note that negative R2 values indicate likely model misspecification.
 {marker options}{...}
 {title:Options}
 
-{phang}{opt id()} specifies the variable on which clustering occurs and that will appear after the random effects specification (i.e., ||) in the 
-{cmd:mixed} syntax.
+{phang}{opt id()} is a required option that passes the clustering variable, {it:levelvar}, or cluster "id"entifier to {cmd:mixed}. 
+This is the variable that would appear after the random effects specification (i.e., {cmd:||}) in the {cmd:mixed} syntax. 
+For example, the command:
 
-{phang}{opt reopt()} passes options to {cmd: mixed} specific to the random intercept effect (i.e., {opt pweight()} the user would 
-like to utilize during estimation.
+{pmore}{cmd:mixdom depvar indepvars, id(levelvar)} 
 
-{phang}{opt mopt()} passes options to {cmd:mixed} that the user would like to utilize during estimation.
+{pmore}would be passed to {cmd:mixed} as:
+
+{pmore}{cmd:mixed depvar indepvars || levelvar:}
+
+{phang}{opt reopt()} passes options to the random intercept of {cmd:mixed} that will be included following its comma (e.g., {opt pweight()}).
+
+{phang}{opt mopt()} passes options to {cmd:mixed} that will be included following its comma (e.g., {opt pwscale()}).
 This option was named {opt xtmopt()} in {cmd:mixdom} versions previous to 2.0.0 and is now defunct.
 
 {title:Saved results}
@@ -56,7 +62,11 @@ This option was named {opt xtmopt()} in {cmd:mixdom} versions previous to 2.0.0 
 {synopt:{cmd:e(r2_w)}}within-cluster R2{p_end}
 {synopt:{cmd:e(r2_b)}}between-cluster R2{p_end}
 {p2col 5 15 19 2: macros}{p_end}
-{synopt:{cmd:e(title)}}"Mixed-effects ML regression"{p_end}
+{synopt:{cmd:e(title)}}title in estimation output{p_end}
+{synopt:{cmd:e(cmd)}}{cmd:mixdom}{p_end}
+{p2col 5 15 19 2: matrices}{p_end}
+{synopt:{cmd:e(b)}}1; required for {cmd:mi_dom}{p_end}
+{synopt:{cmd:e(V)}}1; required for {cmd:mi_dom}{p_end}
 {p2col 5 15 19 2: functions}{p_end}
 {synopt:{cmd:e(sample)}}marks estimation sample{p_end}
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.1 December 20, 2024 J. N. Luchman}{...}
+{* *! version 1.3.0 May 20, 2025 J. N. Luchman}{...}
 {cmd:help domme}
 
 {title:Title}
@@ -337,22 +337,11 @@ constraints. Use {help constraint dir} to list all defined constraints in memory
 {p 4 8 2}Luchman, J. N., Lei, X., and Kaplan, S. A. (2020). Relative importance analysis with multivariate models: Shifting the focus from independent variables to parameter estimates. 
 {it:Journal of Applied Structural Equation Modeling, 4(2)}, 40–59.{p_end}
 
-{title:Development Webpage}
-
-{phang} Additional discussion of results, options, and conceptual issues on: 
-
-{phang}{browse "https://github.com/fmg-jluchman/domin/wiki"}
-
-{phang} Please report bugs, requests for features, and contribute to as well as follow on-going development of {cmd:domme} on:
-
-{phang}{browse "http://github.com/jluchman/domin"}
-
 {title:Article}
 
 Please cite as:
 
 {p 4 8 2}Luchman, J. N. (2021). Determining relative importance in Stata using dominance analysis: domin and domme. {it:The Stata Journal, 21(2)}, 510–538. https://doi.org/10.1177/1536867X211025837{p_end}
-
 
 {title:Author}
 
@@ -365,6 +354,7 @@ Please cite as:
 
 {title:See Also}
 
-{browse "https://CRAN.R-project.org/package=domir":R package domir}, {browse "https://cran.r-project.org/web/packages/domir/vignettes/domir_basics.html":Detailed description of Dominance Analysis}
+{browse "https://CRAN.R-project.org/package=domir":R package domir}, 
+{browse "https://cran.r-project.org/web/packages/domir/vignettes/domir_basics.html":Detailed description of Dominance Analysis}
 
 

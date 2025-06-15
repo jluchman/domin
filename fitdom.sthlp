@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.1.1 December 20, 2023 J. N. Luchman}{...}
+{* *! version 0.1.1 December 20, 2024 J. N. Luchman}{...}
 {cmd:help fitdom}
 {hline}{...}
 

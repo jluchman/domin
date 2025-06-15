@@ -1,25 +1,23 @@
-*! domme version 1.2.1 12/20/2024 Joseph N. Luchman
-// version information at end of file
+*! domme version 1.3.0 5/20/2025 Joseph N. Luchman
 
 **# Pre-program definition
 quietly include dominance.mata, adopath
-
 program define domme, eclass 
-
-	version 16
-
-	if replay() & !strlen("`0'") {
-
-		if ("`e(cmd)'" != "domme") error 301
-
-		if _by() error 190
-
-		Display `0'
-
-		exit 0
-
-	}
-	
+if `c(version)' < 16 {
+	display "{err}As of {cmd:domme} version 1.2.1, the minimum version of " ///
+	"Stata is 16." _newline "If you have an older version of Stata, most " ///
+	"functionality of {cmd:domme} is available from" _newline ///
+	`"{stata net install st0645:this}"' ///
+	" Stata journal article back to version 15."
+	exit 198
+}
+version 16
+if replay() & !strlen("`0'") {
+	if ("`e(cmd)'" != "domme") error 301
+	if _by() error 190
+	Display `0'
+	exit 0
+}
 **# Program definition and argument checks
 syntax [anything(id="equation names" equalok)] [in] [if] [aw pw iw fw], ///
 	Reg(string) Fitstat(string) ///
@@ -67,23 +65,15 @@ else ereturn hidden scalar setcount = 0
 
 **# Ereturn macros
 ereturn hidden local disp_title "`title'"
-
 ereturn hidden local reverse "`reverse'"
-
 if strlen("allset") ereturn local all = "`allset'"
-
 if strlen("`ropts'") ereturn local ropts `"`ropts'"'
-
 ereturn local reg "`reg'"
-
 ereturn local fitstat "`fitstat'"
-
 ereturn local cmd "domme"
-
+ereturn local estat_cmd "domin_estat"
 ereturn local title `"Dominance analysis for multiple equations"'
-
 ereturn local cmdline `"domme `0'"'
-
 **# Ereturn matrices
 if !strlen("`conditional'") ereturn matrix cdldom `cdldom'
 
@@ -103,7 +93,7 @@ end
 /*Display program*/
 program define Display
 
-version 15
+version 16
 
 /*set up*/
 tempname gendom stzd_gendom ranks
@@ -170,7 +160,7 @@ if `cdltest' {
 
 if `cpttest' {	
 
-	display "{txt}Complete dominance designation" _newline "{hline 85}"
+	display "{txt}Complete dominance proportions" _newline "{hline 85}"
 
 	matrix list e(cptdom), noheader
 
@@ -268,7 +258,7 @@ if strlen("`e(all)'") ///
 end
 
 **# Mata function adapting Stata input for Mata and initiating the Mata environment
-version 15
+version 16
 
 mata:
 
@@ -660,12 +650,12 @@ void domme_2mata(
 	if ( !strlen(conditional) ) {
 		st_matrixrowstripe("r(cdldom)", (eq_display \ parm_display)' )
 		st_matrixcolstripe("r(cdldom)", 
-			(J(1, length(dv_iv_pairs), "#param_ests") \ strofreal(1..length(dv_iv_pairs)))' )
+			(J(1, length(dv_iv_pairs), "include_at") \ strofreal(1..length(dv_iv_pairs)))' )
 	}
 	
 	if ( !strlen(complete) ) {
-		st_matrixrowstripe("r(cptdom)", (">?":+eq_display \ parm_display)' )
-		st_matrixcolstripe("r(cptdom)", ("<?":+eq_display \ parm_display)' )
+		st_matrixrowstripe("r(cptdom)", (eq_display \ parm_display:+">")' )
+		st_matrixcolstripe("r(cptdom)", (">":+eq_display \ parm_display)' )
 	}
 	
 	st_matrix("r(stdzd)", 
@@ -705,7 +695,7 @@ void domme_2mata(
 end
 
 **# Mata function to execute 'domme-flavored' models
-version 15
+version 16
 
 mata:
 
@@ -759,60 +749,36 @@ mata:
 end
 
 **# Mata function to drop constraints and exit
-version 15
-
+version 16
 mata:
-
-	mata set matastrict on
-	
-	void exit_constraint(string rowvector cns_list, numeric scalar exit_num) {
-		
-		numeric scalar cns
-		
-		for (cns=1; cns<=length(cns_list); cns++) {
-			
-			stata("constraint drop " + cns_list[cns])
-			
-		}
-		
-		if (exit_num) exit(exit_num)
-		
+mata set matastrict on
+void exit_constraint(string rowvector cns_list, numeric scalar exit_num) 
+{
+	numeric scalar cns
+	for (cns=1; cns<=length(cns_list); cns++) {
+		stata("constraint drop " + cns_list[cns])		
 	}
-	
+	if (exit_num) exit(exit_num)		
+}
 end
-
 **# Mata program to obtain fit statistics after model estimation
-
-version 15
-
+version 16
 mata:
-
-	mata set matastrict on
-	
-	numeric scalar built_in_fitstat(
-		string scalar fitstat, string scalar type, numeric scalar constant, 
-		numeric scalar isconstant
-	) {
-		
-		numeric scalar value
-		
-		/*compute McFadden R2*/
-		if (type == "mcf") {
-			
-			value = (isconstant? 
-				st_numscalar("e(ll)") : 
-				1 - st_numscalar("e(ll)")/constant)
-			
-		}
-		/*not a built-in, pass the name and assume Stata returns it*/
-		else value = st_numscalar( strtrim(fitstat) ) 
-		
-		return(value)
-		
+mata set matastrict on
+numeric scalar built_in_fitstat(string scalar fitstat, string scalar type, 
+	numeric scalar constant, numeric scalar isconstant) 
+{
+	numeric scalar value
+	/*compute McFadden R2*/
+	if (type == "mcf") {
+		value = (isconstant? 
+		st_numscalar("e(ll)") : 1 - st_numscalar("e(ll)")/constant)
 	}
-
+	/*not a built-in, pass the name and assume Stata returns it*/
+	else value = st_numscalar( strtrim(fitstat) ) 
+	return(value)
+}
 end
-
 /* programming notes and history
    - domme version 1.0 - date - July 2, 2019
    -base version
@@ -841,6 +807,8 @@ end
  - estrella, aic and bic disallowed with built-in; mcfadden remains
  // 1.2.1 - December 20, 2024
  - version incremented to 16 consistent with base -domin-
- // 1.2.2 - ....
- ** planned  -- fixed parsing for outcomes to accommodate factor variables (gsem)
+ ---
+ domme version 1.3.0 - May 20, 2025
+ - update complete dominance designations to complete dominance proportions
+ - update display on complete and conditional dominance matrices
 */
